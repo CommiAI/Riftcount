@@ -2,6 +2,8 @@
 
 Inventory Riftbound pack photos and videos.
 
+Supported formats: `.jpg`, `.jpeg`, `.heic`, `.heif` photos and `.mp4`, `.mov` videos.
+
 ```bash
 uv sync
 uv run riftcount update

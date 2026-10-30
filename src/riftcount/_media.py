@@ -2,8 +2,9 @@ from pathlib import Path
 
 from riftcount.inventory import CaptureKind
 
-STILLS: frozenset[str] = frozenset({".jpg", ".jpeg"})
-VIDEOS: frozenset[str] = frozenset({".mp4"})
+STILLS: frozenset[str] = frozenset({".jpg", ".jpeg", ".heic", ".heif"})
+VIDEOS: frozenset[str] = frozenset({".mp4", ".mov"})
+INFER_STILLS: frozenset[str] = frozenset({".jpg", ".jpeg"})
 
 
 def kind_for(path: Path) -> CaptureKind | None:
