@@ -1,0 +1,1122 @@
+{
+  "source_video": "examples/videos/sample-riftbound.mp4",
+  "upload_name": "sample_video_62ce.mp4",
+  "video": {
+    "duration_s": 4.5045,
+    "width": 1080,
+    "height": 1920,
+    "approx_fps": 29.97,
+    "approx_frames": 135
+  },
+  "sampling": {
+    "method": "ffmpeg fps=2 then cardvision infer on the frame folder",
+    "note": "cardvision infer --every needs the optional OpenCV video extra; frames were extracted with ffmpeg instead",
+    "interval_s": 0.5,
+    "ffmpeg_filter": "fps=2",
+    "frames_analyzed": 9,
+    "release": "201478a00d6ef6ba",
+    "accept": {
+      "tau": 0.62,
+      "delta": 0.05,
+      "rotationRetry": true
+    }
+  },
+  "totals": {
+    "face_boxes": 133,
+    "named_boxes": 101,
+    "unsure_boxes": 32
+  },
+  "estimate": {
+    "distinct_names_named": 24,
+    "names": [
+      "Applied Researchers",
+      "Apprentice Mage",
+      "Blade Twirler",
+      "Clairvoyance",
+      "Cloud Drake",
+      "Concert Poster",
+      "Covert Informant",
+      "Dredge Up",
+      "Eager Apprentice",
+      "Forsaken Baccai",
+      "Gemcraft Seer",
+      "Grumpy Rockbear",
+      "Hunters' Circle",
+      "Iterative Design",
+      "Mesmerize",
+      "Oasis Raider",
+      "Otterpus",
+      "Overloaded Traveler",
+      "Patched Porobot",
+      "Pit Crew",
+      "Pit Rookie",
+      "Questionable Tome",
+      "Shadow Assassin",
+      "Shock Blast"
+    ],
+    "max_simultaneous_copies_by_name": {
+      "Cloud Drake": 2,
+      "Dredge Up": 2,
+      "Forsaken Baccai": 2,
+      "Grumpy Rockbear": 2,
+      "Iterative Design": 2,
+      "Applied Researchers": 1,
+      "Apprentice Mage": 1,
+      "Blade Twirler": 1,
+      "Clairvoyance": 1,
+      "Concert Poster": 1,
+      "Covert Informant": 1,
+      "Eager Apprentice": 1,
+      "Gemcraft Seer": 1,
+      "Hunters' Circle": 1,
+      "Mesmerize": 1,
+      "Oasis Raider": 1,
+      "Otterpus": 1,
+      "Overloaded Traveler": 1,
+      "Patched Porobot": 1,
+      "Pit Crew": 1,
+      "Pit Rookie": 1,
+      "Questionable Tome": 1,
+      "Shadow Assassin": 1,
+      "Shock Blast": 1
+    },
+    "estimated_physical_cards_from_max_copies": 29,
+    "how_estimated": "For each card name, take the highest number of that name seen in any single frame (so 2x Dredge Up in one frame counts as two physical copies). Sum those maxima. This is a lower-bound style inventory for a panning shot of a flat layout: cards that never appear fully in one frame together can still be under-counted, and a wrong name can inflate the total.",
+    "richest_frame": "frame-005.jpg",
+    "richest_frame_named_faces": 14
+  },
+  "repeated_unsure_guesses": {
+    "Cloud Drake": 3,
+    "Riptide Rex": 1,
+    "Factory Recall": 1,
+    "Mordekaiser, Iron Revenant": 1,
+    "Concert Poster": 1,
+    "On the Hunt": 1,
+    "Master Yi, Wuju Master": 1,
+    "Iterative Design": 1,
+    "Chemtech Enforcer": 1,
+    "Insightful Investigator": 1,
+    "Inferna": 1,
+    "Navori Scout": 1
+  },
+  "frames": [
+    {
+      "frame": "frame-001.jpg",
+      "named_count": 7,
+      "unsure_count": 4,
+      "named": [
+        {
+          "name": "Iterative Design",
+          "card_id": "VEN-051",
+          "similarity": 0.7911,
+          "detector_score": 0.9664
+        },
+        {
+          "name": "Iterative Design",
+          "card_id": "VEN-051",
+          "similarity": 0.8115,
+          "detector_score": 0.9646
+        },
+        {
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "similarity": 0.7645,
+          "detector_score": 0.938
+        },
+        {
+          "name": "Patched Porobot",
+          "card_id": "VEN-058",
+          "similarity": 0.7516,
+          "detector_score": 0.9359
+        },
+        {
+          "name": "Applied Researchers",
+          "card_id": "VEN-055",
+          "similarity": 0.8054,
+          "detector_score": 0.9328
+        },
+        {
+          "name": "Cloud Drake",
+          "card_id": "VEN-048",
+          "similarity": 0.7898,
+          "detector_score": 0.9222
+        },
+        {
+          "name": "Questionable Tome",
+          "card_id": "VEN-054",
+          "similarity": 0.7174,
+          "detector_score": 0.9092
+        }
+      ],
+      "unsure": [
+        {
+          "top_name": "Cloud Drake",
+          "top_id": "VEN-048",
+          "similarity": 0.6205,
+          "detector_score": 0.9509,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Riptide Rex",
+          "top_id": "OGN-092",
+          "similarity": 0.4893,
+          "detector_score": 0.9138,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Factory Recall",
+          "top_id": "SFD-135",
+          "similarity": 0.4456,
+          "detector_score": 0.654,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Mordekaiser, Iron Revenant",
+          "top_id": "RAD-170S",
+          "similarity": 0.4236,
+          "detector_score": 0.58,
+          "outcome": "nothing"
+        }
+      ],
+      "name_counts": {
+        "Iterative Design": 2,
+        "Grumpy Rockbear": 1,
+        "Patched Porobot": 1,
+        "Applied Researchers": 1,
+        "Cloud Drake": 1,
+        "Questionable Tome": 1
+      }
+    },
+    {
+      "frame": "frame-002.jpg",
+      "named_count": 8,
+      "unsure_count": 3,
+      "named": [
+        {
+          "name": "Iterative Design",
+          "card_id": "VEN-051",
+          "similarity": 0.809,
+          "detector_score": 0.9685
+        },
+        {
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "similarity": 0.7882,
+          "detector_score": 0.9536
+        },
+        {
+          "name": "Iterative Design",
+          "card_id": "VEN-051",
+          "similarity": 0.7764,
+          "detector_score": 0.9532
+        },
+        {
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "similarity": 0.7332,
+          "detector_score": 0.9525
+        },
+        {
+          "name": "Questionable Tome",
+          "card_id": "VEN-054",
+          "similarity": 0.894,
+          "detector_score": 0.952
+        },
+        {
+          "name": "Applied Researchers",
+          "card_id": "VEN-055",
+          "similarity": 0.7824,
+          "detector_score": 0.9424
+        },
+        {
+          "name": "Patched Porobot",
+          "card_id": "VEN-058",
+          "similarity": 0.7318,
+          "detector_score": 0.9268
+        },
+        {
+          "name": "Cloud Drake",
+          "card_id": "VEN-048",
+          "similarity": 0.7955,
+          "detector_score": 0.8962
+        }
+      ],
+      "unsure": [
+        {
+          "top_name": "Concert Poster",
+          "top_id": "RAD-116",
+          "similarity": 0.5694,
+          "detector_score": 0.9399,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Cloud Drake",
+          "top_id": "VEN-048",
+          "similarity": 0.6043,
+          "detector_score": 0.9376,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "On the Hunt",
+          "top_id": "SFD-204",
+          "similarity": 0.4585,
+          "detector_score": 0.8787,
+          "outcome": "nothing"
+        }
+      ],
+      "name_counts": {
+        "Iterative Design": 2,
+        "Grumpy Rockbear": 1,
+        "Dredge Up": 1,
+        "Questionable Tome": 1,
+        "Applied Researchers": 1,
+        "Patched Porobot": 1,
+        "Cloud Drake": 1
+      }
+    },
+    {
+      "frame": "frame-003.jpg",
+      "named_count": 13,
+      "unsure_count": 2,
+      "named": [
+        {
+          "name": "Iterative Design",
+          "card_id": "VEN-051",
+          "similarity": 0.8442,
+          "detector_score": 0.9665
+        },
+        {
+          "name": "Iterative Design",
+          "card_id": "VEN-051",
+          "similarity": 0.7833,
+          "detector_score": 0.9637
+        },
+        {
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "similarity": 0.8052,
+          "detector_score": 0.9572
+        },
+        {
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "similarity": 0.7977,
+          "detector_score": 0.9541
+        },
+        {
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "similarity": 0.8163,
+          "detector_score": 0.9528
+        },
+        {
+          "name": "Applied Researchers",
+          "card_id": "VEN-055",
+          "similarity": 0.7862,
+          "detector_score": 0.9487
+        },
+        {
+          "name": "Questionable Tome",
+          "card_id": "VEN-054",
+          "similarity": 0.9045,
+          "detector_score": 0.944
+        },
+        {
+          "name": "Blade Twirler",
+          "card_id": "VEN-002",
+          "similarity": 0.6615,
+          "detector_score": 0.9392
+        },
+        {
+          "name": "Overloaded Traveler",
+          "card_id": "RAD-072",
+          "similarity": 0.7369,
+          "detector_score": 0.9371
+        },
+        {
+          "name": "Patched Porobot",
+          "card_id": "VEN-058",
+          "similarity": 0.7346,
+          "detector_score": 0.933
+        },
+        {
+          "name": "Covert Informant",
+          "card_id": "VEN-057",
+          "similarity": 0.7919,
+          "detector_score": 0.9144
+        },
+        {
+          "name": "Cloud Drake",
+          "card_id": "VEN-048",
+          "similarity": 0.7757,
+          "detector_score": 0.9115
+        },
+        {
+          "name": "Concert Poster",
+          "card_id": "RAD-116",
+          "similarity": 0.6881,
+          "detector_score": 0.891
+        }
+      ],
+      "unsure": [
+        {
+          "top_name": "Cloud Drake",
+          "top_id": "VEN-048",
+          "similarity": 0.6082,
+          "detector_score": 0.9529,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Master Yi, Wuju Master",
+          "top_id": "UNL-231S",
+          "similarity": 0.4357,
+          "detector_score": 0.7691,
+          "outcome": "nothing"
+        }
+      ],
+      "name_counts": {
+        "Iterative Design": 2,
+        "Grumpy Rockbear": 1,
+        "Dredge Up": 2,
+        "Applied Researchers": 1,
+        "Questionable Tome": 1,
+        "Blade Twirler": 1,
+        "Overloaded Traveler": 1,
+        "Patched Porobot": 1,
+        "Covert Informant": 1,
+        "Cloud Drake": 1,
+        "Concert Poster": 1
+      }
+    },
+    {
+      "frame": "frame-004.jpg",
+      "named_count": 13,
+      "unsure_count": 5,
+      "named": [
+        {
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "similarity": 0.7846,
+          "detector_score": 0.9639
+        },
+        {
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "similarity": 0.8431,
+          "detector_score": 0.9614
+        },
+        {
+          "name": "Applied Researchers",
+          "card_id": "VEN-055",
+          "similarity": 0.7717,
+          "detector_score": 0.9501
+        },
+        {
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "similarity": 0.8663,
+          "detector_score": 0.9453
+        },
+        {
+          "name": "Oasis Raider",
+          "card_id": "VEN-006",
+          "similarity": 0.7968,
+          "detector_score": 0.9422
+        },
+        {
+          "name": "Questionable Tome",
+          "card_id": "VEN-054",
+          "similarity": 0.8808,
+          "detector_score": 0.9403
+        },
+        {
+          "name": "Hunters' Circle",
+          "card_id": "RAD-163",
+          "similarity": 0.7867,
+          "detector_score": 0.9402
+        },
+        {
+          "name": "Overloaded Traveler",
+          "card_id": "RAD-072",
+          "similarity": 0.8422,
+          "detector_score": 0.9394
+        },
+        {
+          "name": "Cloud Drake",
+          "card_id": "VEN-048",
+          "similarity": 0.6497,
+          "detector_score": 0.9383
+        },
+        {
+          "name": "Blade Twirler",
+          "card_id": "VEN-002",
+          "similarity": 0.7156,
+          "detector_score": 0.911
+        },
+        {
+          "name": "Covert Informant",
+          "card_id": "VEN-057",
+          "similarity": 0.7817,
+          "detector_score": 0.9106
+        },
+        {
+          "name": "Cloud Drake",
+          "card_id": "VEN-048",
+          "similarity": 0.7808,
+          "detector_score": 0.8817
+        },
+        {
+          "name": "Concert Poster",
+          "card_id": "RAD-116",
+          "similarity": 0.711,
+          "detector_score": 0.873
+        }
+      ],
+      "unsure": [
+        {
+          "top_name": "Iterative Design",
+          "top_id": "VEN-051",
+          "similarity": 0.6926,
+          "detector_score": 0.9589,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Chemtech Enforcer",
+          "top_id": "OGN-003",
+          "similarity": 0.4713,
+          "detector_score": 0.9322,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Insightful Investigator",
+          "top_id": "UNL-135",
+          "similarity": 0.4402,
+          "detector_score": 0.8335,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Inferna",
+          "top_id": "UNL-002",
+          "similarity": 0.4888,
+          "detector_score": 0.8044,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Navori Scout",
+          "top_id": "SFD-037",
+          "similarity": 0.4294,
+          "detector_score": 0.7835,
+          "outcome": "nothing"
+        }
+      ],
+      "name_counts": {
+        "Dredge Up": 2,
+        "Applied Researchers": 1,
+        "Grumpy Rockbear": 1,
+        "Oasis Raider": 1,
+        "Questionable Tome": 1,
+        "Hunters' Circle": 1,
+        "Overloaded Traveler": 1,
+        "Cloud Drake": 2,
+        "Blade Twirler": 1,
+        "Covert Informant": 1,
+        "Concert Poster": 1
+      }
+    },
+    {
+      "frame": "frame-005.jpg",
+      "named_count": 14,
+      "unsure_count": 5,
+      "named": [
+        {
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "similarity": 0.8221,
+          "detector_score": 0.9602
+        },
+        {
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "similarity": 0.8093,
+          "detector_score": 0.9596
+        },
+        {
+          "name": "Overloaded Traveler",
+          "card_id": "RAD-072",
+          "similarity": 0.785,
+          "detector_score": 0.9543
+        },
+        {
+          "name": "Shadow Assassin",
+          "card_id": "VEN-013",
+          "similarity": 0.8063,
+          "detector_score": 0.948
+        },
+        {
+          "name": "Questionable Tome",
+          "card_id": "VEN-054",
+          "similarity": 0.8818,
+          "detector_score": 0.9433
+        },
+        {
+          "name": "Gemcraft Seer",
+          "card_id": "OGN-100",
+          "similarity": 0.8881,
+          "detector_score": 0.9391
+        },
+        {
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "similarity": 0.8923,
+          "detector_score": 0.9338
+        },
+        {
+          "name": "Covert Informant",
+          "card_id": "VEN-057",
+          "similarity": 0.7361,
+          "detector_score": 0.9332
+        },
+        {
+          "name": "Otterpus",
+          "card_id": "VEN-053",
+          "similarity": 0.778,
+          "detector_score": 0.9159
+        },
+        {
+          "name": "Oasis Raider",
+          "card_id": "VEN-006",
+          "similarity": 0.7842,
+          "detector_score": 0.9131
+        },
+        {
+          "name": "Hunters' Circle",
+          "card_id": "RAD-163",
+          "similarity": 0.6566,
+          "detector_score": 0.9084
+        },
+        {
+          "name": "Pit Rookie",
+          "card_id": "OGN-136",
+          "similarity": 0.7716,
+          "detector_score": 0.9067
+        },
+        {
+          "name": "Blade Twirler",
+          "card_id": "VEN-002",
+          "similarity": 0.6939,
+          "detector_score": 0.8805
+        },
+        {
+          "name": "Concert Poster",
+          "card_id": "RAD-116",
+          "similarity": 0.6765,
+          "detector_score": 0.7638
+        }
+      ],
+      "unsure": [
+        {
+          "top_name": "Applied Researchers",
+          "top_id": "VEN-055",
+          "similarity": 0.5191,
+          "detector_score": 0.933,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Shock Blast",
+          "top_id": "VEN-059",
+          "similarity": 0.582,
+          "detector_score": 0.9295,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Lunar Boon",
+          "top_id": "UNL-125",
+          "similarity": 0.6655,
+          "detector_score": 0.9073,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Recruit the Vanguard",
+          "top_id": "OGS-015",
+          "similarity": 0.3585,
+          "detector_score": 0.9047,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Traveling Merchant",
+          "top_id": "OGN-185",
+          "similarity": 0.3743,
+          "detector_score": 0.7554,
+          "outcome": "nothing"
+        }
+      ],
+      "name_counts": {
+        "Dredge Up": 2,
+        "Overloaded Traveler": 1,
+        "Shadow Assassin": 1,
+        "Questionable Tome": 1,
+        "Gemcraft Seer": 1,
+        "Grumpy Rockbear": 1,
+        "Covert Informant": 1,
+        "Otterpus": 1,
+        "Oasis Raider": 1,
+        "Hunters' Circle": 1,
+        "Pit Rookie": 1,
+        "Blade Twirler": 1,
+        "Concert Poster": 1
+      }
+    },
+    {
+      "frame": "frame-006.jpg",
+      "named_count": 14,
+      "unsure_count": 5,
+      "named": [
+        {
+          "name": "Overloaded Traveler",
+          "card_id": "RAD-072",
+          "similarity": 0.7651,
+          "detector_score": 0.9528
+        },
+        {
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "similarity": 0.6753,
+          "detector_score": 0.9509
+        },
+        {
+          "name": "Eager Apprentice",
+          "card_id": "OGN-084",
+          "similarity": 0.8824,
+          "detector_score": 0.9497
+        },
+        {
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "similarity": 0.831,
+          "detector_score": 0.947
+        },
+        {
+          "name": "Hunters' Circle",
+          "card_id": "RAD-163",
+          "similarity": 0.6777,
+          "detector_score": 0.9459
+        },
+        {
+          "name": "Shadow Assassin",
+          "card_id": "VEN-013",
+          "similarity": 0.8029,
+          "detector_score": 0.9444
+        },
+        {
+          "name": "Gemcraft Seer",
+          "card_id": "OGN-100",
+          "similarity": 0.8658,
+          "detector_score": 0.931
+        },
+        {
+          "name": "Shock Blast",
+          "card_id": "VEN-059",
+          "similarity": 0.8261,
+          "detector_score": 0.9303
+        },
+        {
+          "name": "Otterpus",
+          "card_id": "VEN-053",
+          "similarity": 0.801,
+          "detector_score": 0.9259
+        },
+        {
+          "name": "Forsaken Baccai",
+          "card_id": "VEN-005",
+          "similarity": 0.626,
+          "detector_score": 0.9245
+        },
+        {
+          "name": "Pit Rookie",
+          "card_id": "OGN-136",
+          "similarity": 0.6927,
+          "detector_score": 0.9225
+        },
+        {
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "similarity": 0.8921,
+          "detector_score": 0.9163
+        },
+        {
+          "name": "Covert Informant",
+          "card_id": "VEN-057",
+          "similarity": 0.6815,
+          "detector_score": 0.9091
+        },
+        {
+          "name": "Oasis Raider",
+          "card_id": "VEN-006",
+          "similarity": 0.6907,
+          "detector_score": 0.9088
+        }
+      ],
+      "unsure": [
+        {
+          "top_name": "Showstopper",
+          "top_id": "OGN-270",
+          "similarity": 0.4588,
+          "detector_score": 0.9105,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Pit Crew",
+          "top_id": "OGN-091",
+          "similarity": 0.5866,
+          "detector_score": 0.8922,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Dredge Up",
+          "top_id": "VEN-049",
+          "similarity": 0.562,
+          "detector_score": 0.8758,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Shipyard Skulker",
+          "top_id": "OGN-175",
+          "similarity": 0.375,
+          "detector_score": 0.4922,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Stealthy Pursuer",
+          "top_id": "OGN-177",
+          "similarity": 0.3594,
+          "detector_score": 0.3801,
+          "outcome": "nothing"
+        }
+      ],
+      "name_counts": {
+        "Overloaded Traveler": 1,
+        "Grumpy Rockbear": 2,
+        "Eager Apprentice": 1,
+        "Dredge Up": 1,
+        "Hunters' Circle": 1,
+        "Shadow Assassin": 1,
+        "Gemcraft Seer": 1,
+        "Shock Blast": 1,
+        "Otterpus": 1,
+        "Forsaken Baccai": 1,
+        "Pit Rookie": 1,
+        "Covert Informant": 1,
+        "Oasis Raider": 1
+      }
+    },
+    {
+      "frame": "frame-007.jpg",
+      "named_count": 11,
+      "unsure_count": 6,
+      "named": [
+        {
+          "name": "Gemcraft Seer",
+          "card_id": "OGN-100",
+          "similarity": 0.8677,
+          "detector_score": 0.9557
+        },
+        {
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "similarity": 0.8768,
+          "detector_score": 0.9552
+        },
+        {
+          "name": "Eager Apprentice",
+          "card_id": "OGN-084",
+          "similarity": 0.8585,
+          "detector_score": 0.9526
+        },
+        {
+          "name": "Forsaken Baccai",
+          "card_id": "VEN-005",
+          "similarity": 0.8296,
+          "detector_score": 0.9524
+        },
+        {
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "similarity": 0.9035,
+          "detector_score": 0.9452
+        },
+        {
+          "name": "Pit Crew",
+          "card_id": "OGN-091",
+          "similarity": 0.8884,
+          "detector_score": 0.9421
+        },
+        {
+          "name": "Shadow Assassin",
+          "card_id": "VEN-013",
+          "similarity": 0.8051,
+          "detector_score": 0.9395
+        },
+        {
+          "name": "Shock Blast",
+          "card_id": "VEN-059",
+          "similarity": 0.8532,
+          "detector_score": 0.922
+        },
+        {
+          "name": "Otterpus",
+          "card_id": "VEN-053",
+          "similarity": 0.7538,
+          "detector_score": 0.9079
+        },
+        {
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "similarity": 0.7582,
+          "detector_score": 0.8972
+        },
+        {
+          "name": "Hunters' Circle",
+          "card_id": "RAD-163",
+          "similarity": 0.6921,
+          "detector_score": 0.8825
+        }
+      ],
+      "unsure": [
+        {
+          "top_name": "Pit Rookie",
+          "top_id": "OGN-136",
+          "similarity": 0.598,
+          "detector_score": 0.9548,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Oasis Raider",
+          "top_id": "VEN-006",
+          "similarity": 0.5971,
+          "detector_score": 0.881,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Durand Memorial",
+          "top_id": "RAD-161",
+          "similarity": 0.5217,
+          "detector_score": 0.779,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Forsaken Baccai",
+          "top_id": "VEN-005",
+          "similarity": 0.5902,
+          "detector_score": 0.7426,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Momentary Companion",
+          "top_id": "RAD-095",
+          "similarity": 0.4917,
+          "detector_score": 0.7223,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Buff",
+          "top_id": "OGN-999",
+          "similarity": 0.3519,
+          "detector_score": 0.3491,
+          "outcome": "nothing"
+        }
+      ],
+      "name_counts": {
+        "Gemcraft Seer": 1,
+        "Grumpy Rockbear": 2,
+        "Eager Apprentice": 1,
+        "Forsaken Baccai": 1,
+        "Pit Crew": 1,
+        "Shadow Assassin": 1,
+        "Shock Blast": 1,
+        "Otterpus": 1,
+        "Dredge Up": 1,
+        "Hunters' Circle": 1
+      }
+    },
+    {
+      "frame": "frame-008.jpg",
+      "named_count": 13,
+      "unsure_count": 0,
+      "named": [
+        {
+          "name": "Mesmerize",
+          "card_id": "VEN-052",
+          "similarity": 0.8062,
+          "detector_score": 0.9681
+        },
+        {
+          "name": "Shadow Assassin",
+          "card_id": "VEN-013",
+          "similarity": 0.8035,
+          "detector_score": 0.9668
+        },
+        {
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "similarity": 0.8955,
+          "detector_score": 0.9578
+        },
+        {
+          "name": "Apprentice Mage",
+          "card_id": "VEN-047",
+          "similarity": 0.8921,
+          "detector_score": 0.9523
+        },
+        {
+          "name": "Clairvoyance",
+          "card_id": "VEN-056",
+          "similarity": 0.8806,
+          "detector_score": 0.9474
+        },
+        {
+          "name": "Forsaken Baccai",
+          "card_id": "VEN-005",
+          "similarity": 0.8795,
+          "detector_score": 0.9438
+        },
+        {
+          "name": "Eager Apprentice",
+          "card_id": "OGN-084",
+          "similarity": 0.8416,
+          "detector_score": 0.9424
+        },
+        {
+          "name": "Pit Crew",
+          "card_id": "OGN-091",
+          "similarity": 0.8775,
+          "detector_score": 0.9411
+        },
+        {
+          "name": "Shock Blast",
+          "card_id": "VEN-059",
+          "similarity": 0.8397,
+          "detector_score": 0.9401
+        },
+        {
+          "name": "Forsaken Baccai",
+          "card_id": "VEN-005",
+          "similarity": 0.7565,
+          "detector_score": 0.9384
+        },
+        {
+          "name": "Gemcraft Seer",
+          "card_id": "OGN-100",
+          "similarity": 0.7106,
+          "detector_score": 0.926
+        },
+        {
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "similarity": 0.7786,
+          "detector_score": 0.9177
+        },
+        {
+          "name": "Otterpus",
+          "card_id": "VEN-053",
+          "similarity": 0.6804,
+          "detector_score": 0.9091
+        }
+      ],
+      "unsure": [],
+      "name_counts": {
+        "Mesmerize": 1,
+        "Shadow Assassin": 1,
+        "Grumpy Rockbear": 1,
+        "Apprentice Mage": 1,
+        "Clairvoyance": 1,
+        "Forsaken Baccai": 2,
+        "Eager Apprentice": 1,
+        "Pit Crew": 1,
+        "Shock Blast": 1,
+        "Gemcraft Seer": 1,
+        "Dredge Up": 1,
+        "Otterpus": 1
+      }
+    },
+    {
+      "frame": "frame-009.jpg",
+      "named_count": 8,
+      "unsure_count": 2,
+      "named": [
+        {
+          "name": "Forsaken Baccai",
+          "card_id": "VEN-005",
+          "similarity": 0.7823,
+          "detector_score": 0.9637
+        },
+        {
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "similarity": 0.8913,
+          "detector_score": 0.9574
+        },
+        {
+          "name": "Mesmerize",
+          "card_id": "VEN-052",
+          "similarity": 0.7882,
+          "detector_score": 0.9572
+        },
+        {
+          "name": "Apprentice Mage",
+          "card_id": "VEN-047",
+          "similarity": 0.8458,
+          "detector_score": 0.9561
+        },
+        {
+          "name": "Clairvoyance",
+          "card_id": "VEN-056",
+          "similarity": 0.88,
+          "detector_score": 0.9491
+        },
+        {
+          "name": "Forsaken Baccai",
+          "card_id": "VEN-005",
+          "similarity": 0.8369,
+          "detector_score": 0.9415
+        },
+        {
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "similarity": 0.6925,
+          "detector_score": 0.9117
+        },
+        {
+          "name": "Pit Crew",
+          "card_id": "OGN-091",
+          "similarity": 0.7673,
+          "detector_score": 0.879
+        }
+      ],
+      "unsure": [
+        {
+          "top_name": "Aspiring Engineer",
+          "top_id": "SFD-061",
+          "similarity": 0.593,
+          "detector_score": 0.9169,
+          "outcome": "nothing"
+        },
+        {
+          "top_name": "Ezreal, Prodigy",
+          "top_id": "VEN-SP5",
+          "similarity": 0.4047,
+          "detector_score": 0.846,
+          "outcome": "nothing"
+        }
+      ],
+      "name_counts": {
+        "Forsaken Baccai": 2,
+        "Grumpy Rockbear": 1,
+        "Mesmerize": 1,
+        "Apprentice Mage": 1,
+        "Clairvoyance": 1,
+        "Dredge Up": 1,
+        "Pit Crew": 1
+      }
+    }
+  ]
+}

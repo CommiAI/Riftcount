@@ -1,2 +1,3 @@
-# riftbound-card-inventory
-Photo-based Riftbound TCG card identification and inventory
+# Riftcount
+
+Inventory helper for Riftbound pack photos and videos.
