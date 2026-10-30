@@ -1,0 +1,10 @@
+ts	phase	decision	why	evidence	result
+2026-10-30T08:30:00Z	start	Opened the research run for card identification	The repository was a one-line README and the task needs a cited recommendation plus a real run	README.md	open
+2026-10-30T08:32:00Z	research	Treated RiftSight as the open-sourced model and Rift Atlas as the simulator it reads	The 19 October 2026 announcement and the model card name Rift Atlas as a digital client, and the weights are in ryangswe/riftsight-vision	docs/research.md	verified
+2026-10-30T08:34:00Z	spike	Ran cardvision 0.5.1 on both photos with release 201478a00d6ef6ba	The weights are public ONNX files and this machine has no GPU	spike/results/report.json	3 of 5 runes named, 9 faces on photo 2
+2026-10-30T08:36:00Z	spike	Lowered the detector cutoff to 0.05 on photo 1	The two missed runes might have been near misses	spike/results/report.json photo1_detector_at_0_05	no face box on either miss
+2026-10-30T08:38:00Z	research	Read OpenRift's scanner doc and did not port it	Their still-photo bench needs Bun, Postgres, and a local image cache, and a partial port would not be their pipeline	docs/scanner.md in openriftapp/openrift	not run on the photos
+2026-10-30T08:40:00Z	spike	Pasted four copies of the Fury Rune crop instead of photographing a stack	No physical stack was attached, and a squared pile has to be measured somehow	spike/results/report.json pasted_stack	squared paste named 1 card, fans named 0
+2026-10-30T08:41:00Z	recommend	Told Commi to try OpenRift on the phone before writing an identifier here	OpenRift already scans, resolves language and collector code, and exports a collection	docs/research.md recommendation	open until the phone test
+2026-10-30T08:42:00Z	spike	Placed the pasted card on a large mat after a close-up paste scored 0	A crop that filled the frame is outside the detector's table-scene training	spike/run_spike.py stack_scenes	one copy on the mat named Fury Rune
+2026-10-30T08:43:00Z	spike	Took the Fury Rune crop from the infer box instead of a hardcoded rectangle	A comment was the only place that said where the numbers came from	spike/run_spike.py crop_named	rerun matched the same stack counts

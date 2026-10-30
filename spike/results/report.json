@@ -1,0 +1,273 @@
+{
+  "release_id": "201478a00d6ef6ba",
+  "photos": [
+    {
+      "frame": "photo1-runes.jpg",
+      "width": 3024,
+      "height": 4032,
+      "faces": [
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Fury Rune",
+          "card_id": "RAD-R01A",
+          "detector_score": 0.590332,
+          "similarity": 0.803251,
+          "margin": 0.41868,
+          "rotation_retry": false
+        },
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Mind Rune",
+          "card_id": "RAD-R03A",
+          "detector_score": 0.491375,
+          "similarity": 0.69486,
+          "margin": 0.286854,
+          "rotation_retry": false
+        },
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Body Rune",
+          "card_id": "VEN-R04B",
+          "detector_score": 0.321299,
+          "similarity": 0.86154,
+          "margin": 0.435628,
+          "rotation_retry": false
+        }
+      ]
+    },
+    {
+      "frame": "photo2-fabric.jpg",
+      "width": 480,
+      "height": 360,
+      "faces": [
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Cloud Drake",
+          "card_id": "VEN-048",
+          "detector_score": 0.954244,
+          "similarity": 0.758319,
+          "margin": 0.230535,
+          "rotation_retry": false
+        },
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Shock Blast",
+          "card_id": "VEN-059",
+          "detector_score": 0.944633,
+          "similarity": 0.809608,
+          "margin": 0.392623,
+          "rotation_retry": false
+        },
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Grumpy Rockbear",
+          "card_id": "VEN-050",
+          "detector_score": 0.942277,
+          "similarity": 0.825062,
+          "margin": 0.407423,
+          "rotation_retry": false
+        },
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Otterpus",
+          "card_id": "VEN-053",
+          "detector_score": 0.935733,
+          "similarity": 0.849284,
+          "margin": 0.298022,
+          "rotation_retry": false
+        },
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Overloaded Traveler",
+          "card_id": "RAD-072",
+          "detector_score": 0.935529,
+          "similarity": 0.930498,
+          "margin": 0.342766,
+          "rotation_retry": false
+        },
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Concert Poster",
+          "card_id": "RAD-116",
+          "detector_score": 0.934739,
+          "similarity": 0.879015,
+          "margin": 0.40746,
+          "rotation_retry": false
+        },
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Pit Rookie",
+          "card_id": "OGN-136",
+          "detector_score": 0.917939,
+          "similarity": 0.766428,
+          "margin": 0.207216,
+          "rotation_retry": false
+        },
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Hunters' Circle",
+          "card_id": "RAD-163",
+          "detector_score": 0.89671,
+          "similarity": 0.910408,
+          "margin": 0.33916,
+          "rotation_retry": true
+        },
+        {
+          "class": "face",
+          "outcome": "named",
+          "name": "Dredge Up",
+          "card_id": "VEN-049",
+          "detector_score": 0.869482,
+          "similarity": 0.674981,
+          "margin": 0.094487,
+          "rotation_retry": false
+        }
+      ]
+    }
+  ],
+  "photo1_detector_at_0_05": {
+    "threshold": 0.05,
+    "best_score_before_threshold": 0.5857487916946411,
+    "boxes": [
+      {
+        "class": "face",
+        "score": 0.5857487916946411,
+        "box_xywh": [
+          1484.7580947875977,
+          2116.1032791137695,
+          1095.9708251953125,
+          1428.3356552124023
+        ]
+      },
+      {
+        "class": "face",
+        "score": 0.48194316029548645,
+        "box_xywh": [
+          302.7857151031494,
+          2024.3524475097656,
+          1083.0276718139648,
+          1475.4903259277344
+        ]
+      },
+      {
+        "class": "face",
+        "score": 0.31682369112968445,
+        "box_xywh": [
+          1984.7178955078125,
+          798.2534637451172,
+          978.6417846679688,
+          1245.4493865966797
+        ]
+      },
+      {
+        "class": "back",
+        "score": 0.10442003607749939,
+        "box_xywh": [
+          1121.8403091430664,
+          807.0682182312012,
+          864.4956207275391,
+          758.2533760070801
+        ]
+      },
+      {
+        "class": "back",
+        "score": 0.06851060688495636,
+        "box_xywh": [
+          1122.1307830810547,
+          1431.9863662719727,
+          841.1375427246094,
+          596.2790679931641
+        ]
+      }
+    ]
+  },
+  "pasted_stack": {
+    "note": "Four copies of the photo 1 Fury Rune crop pasted on a flat green field. Not a physical stack.",
+    "scenes": [
+      {
+        "frame": "one.jpg",
+        "width": 2000,
+        "height": 1600,
+        "faces": [
+          {
+            "class": "face",
+            "outcome": "named",
+            "name": "Fury Rune",
+            "card_id": "RAD-R01A",
+            "detector_score": 0.874434,
+            "similarity": 0.748842,
+            "margin": 0.281433,
+            "rotation_retry": false
+          }
+        ]
+      },
+      {
+        "frame": "squared.jpg",
+        "width": 2000,
+        "height": 1600,
+        "faces": [
+          {
+            "class": "face",
+            "outcome": "named",
+            "name": "Fury Rune",
+            "card_id": "RAD-R01A",
+            "detector_score": 0.806272,
+            "similarity": 0.759457,
+            "margin": 0.262959,
+            "rotation_retry": false
+          }
+        ]
+      },
+      {
+        "frame": "fanned-90.jpg",
+        "width": 2000,
+        "height": 1600,
+        "faces": []
+      },
+      {
+        "frame": "fanned-260.jpg",
+        "width": 2400,
+        "height": 1400,
+        "faces": []
+      },
+      {
+        "frame": "separated.jpg",
+        "width": 2500,
+        "height": 1200,
+        "faces": [
+          {
+            "class": "face",
+            "outcome": "named",
+            "name": "Fury Rune",
+            "card_id": "RAD-R01A",
+            "detector_score": 0.841589,
+            "similarity": 0.756693,
+            "margin": 0.277073,
+            "rotation_retry": false
+          },
+          {
+            "class": "face",
+            "outcome": "named",
+            "name": "Fury Rune",
+            "card_id": "RAD-R01A",
+            "detector_score": 0.70805,
+            "similarity": 0.76863,
+            "margin": 0.275052,
+            "rotation_retry": false
+          }
+        ]
+      }
+    ]
+  }
+}
