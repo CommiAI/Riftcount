@@ -1,0 +1,135 @@
+{
+  "engine": "openrift-readBoard",
+  "bank": "scan-bank-50d08713bd8b8fa4.bin",
+  "encoder": "scan-encoder-v2.onnx",
+  "boardDetector": "scan-board-detector-v2.onnx",
+  "embedDim": 256,
+  "embedImageSize": 192,
+  "maxSide": 2048,
+  "gates": {
+    "confidentDistance": 0.35,
+    "rotationFallbackDistance": 0.42,
+    "slowRotationFallbackDistance": 0.42,
+    "topK": 2
+  },
+  "canonical": true,
+  "results": [
+    {
+      "photo": "photo1-runes",
+      "file": "/workspace/examples/photos/photo1-runes.jpg",
+      "width": 1536,
+      "height": 2048,
+      "ms": 2631.987195,
+      "cards": [
+        {
+          "key": "019fc7f8-bd29-7acc-8dc0-92466b1b14a8",
+          "name": "Body Rune",
+          "code": "VEN-R04b-P-EN",
+          "score": 0.9,
+          "rivalScore": 0.48,
+          "distance": 0.106,
+          "confident": true,
+          "printingResolved": false,
+          "alternatives": []
+        },
+        {
+          "key": "01a0f3c9-6b35-765e-94e8-4314e7a12884",
+          "name": "Mind Rune",
+          "code": "RAD-R03a-SC",
+          "score": 0.78,
+          "rivalScore": 0.35,
+          "distance": 0.4475,
+          "confident": true,
+          "printingResolved": false,
+          "alternatives": []
+        },
+        {
+          "key": "01a11548-66b8-7b51-9ef8-23196e26cd29",
+          "name": "Fury Rune",
+          "code": "RAD-R01a-EN",
+          "score": 0.74,
+          "rivalScore": 0.44,
+          "distance": 0.2465,
+          "confident": true,
+          "printingResolved": false,
+          "alternatives": []
+        }
+      ]
+    },
+    {
+      "photo": "photo2-fabric",
+      "file": "/workspace/examples/photos/photo2-fabric.jpg",
+      "width": 480,
+      "height": 360,
+      "ms": 5611.225343,
+      "cards": [
+        {
+          "key": "019f6d20-a85d-7b44-86ca-e75ebdce6d5e",
+          "name": "Otterpus",
+          "code": "VEN-053/166-EN",
+          "score": 0.96,
+          "rivalScore": 0.62,
+          "distance": 0.4332,
+          "confident": true,
+          "printingResolved": false,
+          "alternatives": []
+        },
+        {
+          "key": "01a0f3cf-860a-7216-ad88-e85c5c828d2d",
+          "name": "Concert Poster",
+          "code": "RAD-116/167-EN",
+          "score": 0.93,
+          "rivalScore": 0.65,
+          "distance": 0.5932,
+          "confident": false,
+          "printingResolved": false,
+          "alternatives": []
+        },
+        {
+          "key": "019f7142-ed46-7b62-b0d6-cbac1dd1649f",
+          "name": "Shock Blast",
+          "code": "VEN-059/166-EN",
+          "score": 0.93,
+          "rivalScore": 0.3,
+          "distance": 0.2583,
+          "confident": true,
+          "printingResolved": false,
+          "alternatives": []
+        },
+        {
+          "key": "019f6d09-5a40-7919-a3ea-c2b2e9e337d4",
+          "name": "Dredge Up",
+          "code": "VEN-049/166-EN",
+          "score": 0.87,
+          "rivalScore": 0.56,
+          "distance": 0.3561,
+          "confident": true,
+          "printingResolved": true,
+          "alternatives": []
+        },
+        {
+          "key": "019f6d18-51cd-7a39-a701-ede5f7eacdb2",
+          "name": "Grumpy Rockbear",
+          "code": "VEN-050/166-EN",
+          "score": 0.87,
+          "rivalScore": 0,
+          "distance": 0.3027,
+          "confident": true,
+          "printingResolved": false,
+          "alternatives": []
+        },
+        {
+          "key": "f14b643a-dd5d-4383-9ce8-99628efa3c95",
+          "name": "Pit Rookie",
+          "code": "OGN-136/298",
+          "score": 0.61,
+          "rivalScore": 0,
+          "distance": 0.3928,
+          "confident": true,
+          "printingResolved": false,
+          "alternatives": []
+        }
+      ]
+    }
+  ]
+}

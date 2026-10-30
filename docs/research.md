@@ -60,9 +60,9 @@ A Chinese printing is not a catalog row. [languages.md](https://github.com/ryang
 
 The pipeline finds corners, unwarps the card, embeds it, checks the shortlist against the real card image, then reads the name band, the collector-code strip, and the stamp to pick the printing. A miss becomes a picker. The same doc says an earlier OCR and perceptual-hash scanner named the right card in 0 to 10 percent of frames and kept naming wrong ones, and that a 16-pixel color grid could not separate right matches from wrong ones. Their own clip set, as of October 2026, found 114 of 116 single-card clips with 0 wrong locks. That number is theirs, measured on recordings that are not in the repository, and it is not a score on the two photos here.
 
-Their bench for a still photo is `bun scripts/scan/run-boards.ts`. It expects Bun, a local Postgres, and a cache of card images. That stack was not started here, so OpenRift was not run on the two photos. Downloading the ONNX files and reimplementing the unwarp in Python would not be their pipeline, so that was not reported as a result.
+Their bench for a still photo is `bun scripts/scan/run-boards.ts`. It expects Bun, a local Postgres, and a cache of card images. That full bench was not started here. The same shared `readBoard` path was run offline instead: public ONNX files and bank from `https://openrift.app/media/scan/`, Bun, `onnxruntime-node`, and on-demand `https://openrift.app/media/cards/{uuid}-400w.webp` references. The script and JSON are under `spike/openrift/` and `spike/results/openrift-report.json`. That is their board-read code, not a reimplemented unwarp.
 
-On quantity, the same page is explicit. Each copy counts once, including when the card stays in view. The next copy counts after the guide is empty, after a different card, or after a placement watcher sees a new card laid on the pile. The Identify button forces another add of the card still in hand. Tap mode reads every card in one still, and a second tap adds them again. Stacked and overlapping cards are listed under known gaps as best effort.
+On quantity, the same page is explicit. Each copy counts once, including when the card stays in view. The next copy counts after the guide is empty, after a different card, or after a placement watcher sees a new card laid on the pile. The Identify button forces another add of the card still in hand. Tap mode reads every card in one still, and a second tap adds them again. Stacked and overlapping cards are listed under known gaps as best effort. The offline still-photo run did not count copies. It returned one row per detected face.
 
 ### Ximilar
 
@@ -124,20 +124,33 @@ Cloud Drake `VEN-048`, Otterpus `VEN-053`, Dredge Up `VEN-049`, Shock Blast `VEN
 
 Hunters' Circle `RAD-163` is the sideways card at the upper left. The catalog kind is Battlefield, and the match used the rotation retry. Similarity was 0.910. The title is not readable on a 480 by 360 file, so this name is unverified by eye. The task note expected one face-down card. This file shows a printed face there, and the run emitted no back.
 
+### OpenRift `readBoard` on the same two files
+
+Bank `scan-bank-50d08713bd8b8fa4` (3,859 keys, 256-d ArcFace), encoder and board detector `v2`, Bun, CPU. Photo 1 was resized to a long side of 2,048. Photo 2 stayed 480 by 360. JSON: `spike/results/openrift-report.json`.
+
+| Photo | cardvision faces | OpenRift cards | Confident OpenRift |
+| --- | --- | --- | --- |
+| photo1-runes | 3 named of 5 | 3 | 3 |
+| photo2-fabric | 9 named | 6 | 5 |
+
+Photo 1 returned Body Rune `VEN-R04b-P-EN`, Mind Rune `RAD-R03a-SC`, and Fury Rune `RAD-R01a-EN`. The same three faces cardvision named. The purple-sleeved Calm and Mind runes still had no outline. The toploader Mind Rune came back as the Simplified Chinese printing key even though the sleeve line read `RAD · R03a · EN` by eye. Printing resolution did not lock (`printingResolved: false`), so that is an art-level hit with the wrong language row still on top.
+
+Photo 2 confident hits: Otterpus, Shock Blast, Dredge Up, Grumpy Rockbear, Pit Rookie. Concert Poster was proposed and marked not confident. Missed relative to cardvision: Cloud Drake, Overloaded Traveler, and Hunters' Circle. Pit Rookie was confident under the same English image id cardvision used. No quantity came out of either photo. Six faces in one still are six rows of count 1.
+
 ## Four ways to build the first identifier
 
 | Approach | What you get | What it costs |
 | --- | --- | --- |
-| OpenRift `/scan`, and its collection if the export is enough | Printing, language, collector code, and a free on-device scanner that already abstains when unsure | Not measured on these two photos. Stacks are a documented best-effort gap. The license is AGPL-3.0. The phone test below is the way to measure it. |
-| `cardvision infer` on a photo of separated faces | The spike above. Apache-2.0 weights. Several cards per still. Printing-level ids when the art differs. Runs on CPU. | Missed 2 of 5 sleeved runes. English ids only. No foil flag. No quantity. A card that fills the frame can score 0, as the first bad paste did before the card was shrunk onto a mat. |
+| OpenRift `/scan`, and its collection if the export is enough | Printing, language, collector code, and a free on-device scanner that already abstains when unsure | Measured on these stills via `readBoard`: same 3 of 5 runes as cardvision, 5 confident of 9 fabric faces, one wrong-language Mind key. Stacks remain a documented best-effort gap. AGPL-3.0. Phone UX still untested here. |
+| `cardvision infer` on a photo of separated faces | The spike above. Apache-2.0 weights. Several cards per still. Printing-level ids when the art differs. Runs on CPU. | Missed 2 of 5 sleeved runes. English ids only. No foil flag. No quantity. A card that fills the frame can score 0, as the first bad paste did before the card was shrunk onto a mat. Found three fabric cards OpenRift's board detector skipped on the 480 px file. |
 | Ximilar `tcg_id` | A hosted multi-card API, with Riftbound English fields and `analyze_all` billed per card | Business plan at $69 a month, or an emailed trial. Taxonomy lists English only for Riftbound. Not called here. No stack count. |
 | OCR of the bottom code, then a catalog lookup | The line `VEN · R02b · P · EN` is the printing, the promo mark, and the language, and it is readable on the full-size rune photo | OpenRift measured a text-and-hash scanner at 0 to 10 percent of frames and dropped it. Glare and a 480 pixel photo hide the line. Use the line as a check on an embedding hit, which is what OpenRift's printing stage already does. |
 
 ## Recommendation
 
-Do the phone test in the last section before writing an identifier. OpenRift already scans, already resolves language and collector code, and already exports a collection. If that scanner locks these cards, including the two green runes and the Chinese Pit Rookie, this repository should not grow a second model. The AGPL license means a private fork that you run for yourself is a different decision from pasting their scanner into an app you ship. Read the license before copying.
+OpenRift's still-photo path already names the same three runes cardvision names and the Chinese Pit Rookie, and it already abstains on Concert Poster. It still misses the two purple-sleeved green runes and three fabric faces on the small photo. Prefer OpenRift's phone `/scan` for day-to-day collection work before writing a second model here. The AGPL license means a private fork that you run for yourself is a different decision from pasting their scanner into an app you ship. Read the license before copying.
 
-If that phone test misses the sleeved runes, or if the photos have to stay in this repository, the first code to write here is a folder watcher around `cardvision infer`. One JSON row per accepted face, count 1, card id taken from the bank row. Ask for a typed count when the person has several copies of that face. Do not add a stack counter. The paste test says a squared pile is one card, and a fan can be zero. Add the printed collector line as a second opinion only after the embedding hit exists, and only to confirm the rune letter and the language. Do not start from a color grid, from CLIP, or from a paid API until this pair has failed on a larger set of Commi's own photos.
+If phone capture still drops sleeved runes, or if the photos have to stay in this repository under Apache-2.0 tooling, the first code to write here is a folder watcher around `cardvision infer`. One JSON row per accepted face, count 1, card id taken from the bank row. Ask for a typed count when the person has several copies of that face. Do not add a stack counter. The paste test says a squared pile is one card, and a fan can be zero. Add the printed collector line as a second opinion only after the embedding hit exists, and only to confirm the rune letter and the language. Do not start from a color grid, from CLIP, or from a paid API until this pair has failed on a larger set of Commi's own photos.
 
 ## A real stack test
 

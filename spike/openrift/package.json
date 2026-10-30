@@ -1,0 +1,8 @@
+{
+  "name": "or-spike",
+  "type": "module",
+  "dependencies": {
+    "onnxruntime-node": "^1.22.0",
+    "sharp": "^0.34.0"
+  }
+}
