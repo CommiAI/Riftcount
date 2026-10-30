@@ -1,0 +1,4 @@
+{
+  "name": "Riftcount",
+  "install": "bash .cursor/install.sh"
+}
