@@ -1,0 +1,22 @@
+[project]
+name = "riftcount"
+version = "0.1.0"
+description = "Inventory Riftbound pack photos and videos."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "cardvision==0.5.1",
+    "typer>=0.12",
+]
+
+[project.scripts]
+riftcount = "riftcount.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
