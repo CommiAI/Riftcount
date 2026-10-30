@@ -25,23 +25,24 @@ import {
 import { gatesForEmbedDim } from "/tmp/openrift-src/packages/shared/src/scan/session-options.ts";
 import type { RgbaImage } from "/tmp/openrift-src/packages/shared/src/scan/types.ts";
 
-const ASSETS = "/tmp/openrift-scan";
+const ROOT = path.resolve(import.meta.dirname, "../..");
+const ASSETS = process.env.OPENRIFT_SCAN_DIR ?? "/tmp/openrift-scan";
 const BANK_FILE = path.join(ASSETS, "scan-bank-50d08713bd8b8fa4.bin");
 const LABELS_FILE = path.join(ASSETS, "scan-labels-50d08713bd8b8fa4.json");
 const ENCODER_FILE = path.join(ASSETS, "scan-encoder-v2.onnx");
 const BOARD_FILE = path.join(ASSETS, "scan-board-detector-v2.onnx");
-const REF_CACHE = "/tmp/or-spike/ref-cache";
+const REF_CACHE = process.env.OPENRIFT_REF_CACHE ?? "/tmp/or-spike/ref-cache";
 const EMBED_SIZE = 192;
 const MEDIA_BASE = "https://openrift.app/media/cards";
 
 const PHOTOS = [
   {
     id: "photo1-runes",
-    file: "/workspace/examples/photos/photo1-runes.jpg",
+    file: path.join(ROOT, "examples/photos/photo1-runes.jpg"),
   },
   {
     id: "photo2-fabric",
-    file: "/workspace/examples/photos/photo2-fabric.jpg",
+    file: path.join(ROOT, "examples/photos/photo2-fabric.jpg"),
   },
 ];
 

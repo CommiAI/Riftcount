@@ -3,7 +3,10 @@ name = "riftcount"
 version = "0.1.0"
 description = "Inventory Riftbound pack photos and videos."
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11"
+authors = [{ name = "CommiAI" }]
 dependencies = [
     "cardvision==0.5.1",
     "typer>=0.12",
@@ -11,6 +14,11 @@ dependencies = [
 
 [project.scripts]
 riftcount = "riftcount.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/CommiAI/Riftcount"
+Repository = "https://github.com/CommiAI/Riftcount"
+Issues = "https://github.com/CommiAI/Riftcount/issues"
 
 [dependency-groups]
 dev = [

@@ -1,0 +1,14 @@
+Riftcount
+Copyright 2026 CommiAI
+
+This product includes software developed at CommiAI.
+
+Riftcount depends on cardvision (Apache-2.0), which redistributes
+RiftSight vision weights. Card names, card art, and Riot trademarks
+remain with their owners. Riftcount does not grant a license to that
+content.
+
+The research spike under spike/openrift/ imports OpenRift TypeScript
+from a local checkout when you run it. OpenRift is AGPL-3.0. That code
+is not shipped in this repository. Running the spike is a separate
+choice from using the Apache-2.0 riftcount package.
