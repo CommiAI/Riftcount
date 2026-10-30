@@ -10,7 +10,9 @@ htmlcov/
 dist/
 build/
 *.egg-info/
-.cursor/
+.cursor/*
+!.cursor/environment.json
+!.cursor/install.sh
 .env
 .env.*
 !.env.example
