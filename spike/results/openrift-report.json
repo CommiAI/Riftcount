@@ -16,7 +16,7 @@
   "results": [
     {
       "photo": "photo1-runes",
-      "file": "/workspace/examples/photos/photo1-runes.jpg",
+      "file": "examples/photos/photo1-runes.jpg",
       "width": 1536,
       "height": 2048,
       "ms": 2631.987195,
@@ -58,7 +58,7 @@
     },
     {
       "photo": "photo2-fabric",
-      "file": "/workspace/examples/photos/photo2-fabric.jpg",
+      "file": "examples/photos/photo2-fabric.jpg",
       "width": 480,
       "height": 360,
       "ms": 5611.225343,
