@@ -119,3 +119,50 @@ def test_video_extracts_jpegs_before_infer(tmp_path: Path, monkeypatch: pytest.M
     assert "--every" not in infer
     assert all(not arg.endswith(".mp4") for arg in infer)
     assert any(arg.endswith(".jpg") for arg in infer)
+
+
+def test_mov_video_uses_the_same_ffmpeg_extract_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from riftcount._cardvision import read_capture
+
+    video = tmp_path / "clip.MOV"
+    video.write_bytes(b"mov")
+    release = tmp_path / "weights"
+    release.mkdir()
+    (release / "release.json").write_text('{"id": "abc"}\n', encoding="utf-8")
+    calls: list[list[str]] = []
+
+    def fake_which(name: str) -> str | None:
+        if name in {"ffmpeg", "cardvision"}:
+            return f"/usr/bin/{name}"
+        return None
+
+    def fake_run(argv: list[str], **kwargs: object) -> object:
+        del kwargs
+        calls.append(list(argv))
+
+        class Proc:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        if argv[0] == "ffmpeg":
+            assert argv[argv.index("-i") + 1] == str(video)
+            pattern = Path(argv[-1])
+            jpeg = pattern.parent / "frame-0001.jpg"
+            jpeg.write_bytes(b"jpeg")
+            return Proc()
+        Proc.stdout = (
+            '{"frame": "frame-0001.jpg", "boxes": ['
+            '{"class": "face", "outcome": "named", "name": "Otterpus", "cardId": "OGN-010"}'
+            "]}\n"
+        )
+        return Proc()
+
+    monkeypatch.setattr("riftcount._cardvision.shutil.which", fake_which)
+    monkeypatch.setattr("riftcount._cardvision.subprocess.run", fake_run)
+    _, frames = read_capture(video, CaptureKind.VIDEO, release)
+    assert frames[0].named[0].name.text == "Otterpus"
+    assert calls[0][0] == "ffmpeg"
+    assert str(video) in calls[0]

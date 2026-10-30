@@ -67,6 +67,9 @@ def test_count_help_exits_0() -> None:
     assert "--out" in result.output
     assert ".jpg" in result.output
     assert ".mp4" in result.output
+    assert ".mov" in result.output
+    assert ".heic" in result.output
+    assert ".heif" in result.output
     assert "sync" not in result.output
     assert "RIFTCOUNT_RELEASE" not in result.output
 

@@ -7,7 +7,7 @@ import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
-from riftcount._media import STILLS
+from riftcount._media import INFER_STILLS
 from riftcount.errors import UsageError, VisionError
 from riftcount.inventory import (
     CaptureKind,
@@ -18,6 +18,7 @@ from riftcount.inventory import (
 )
 
 FRAME_INTERVAL_S = 0.5
+_heif_registered = False
 
 
 def sample_filter() -> str:
@@ -49,8 +50,8 @@ def release_id(document: Path) -> str:
 
 def infer_argv(binary: str, release_document: Path, images: Sequence[Path]) -> list[str]:
     for image in images:
-        if image.suffix.lower() not in STILLS:
-            raise VisionError(f"refusing to pass a video to cardvision infer: {image}")
+        if image.suffix.lower() not in INFER_STILLS:
+            raise VisionError(f"refusing to pass a non-jpeg to cardvision infer: {image}")
     return [
         binary,
         "infer",
@@ -72,8 +73,38 @@ def read_capture(
             images = _extract_frames(path, Path(tmp))
             frames = _infer(binary, document, images, source=path)
         return ident, frames
-    frames = _infer(binary, document, [path], source=path)
+    if path.suffix.lower() in INFER_STILLS:
+        frames = _infer(binary, document, [path], source=path)
+        return ident, frames
+    with tempfile.TemporaryDirectory(prefix="riftcount-") as tmp:
+        images = (_heif_to_jpeg(path, Path(tmp)),)
+        frames = _infer(binary, document, images, source=path)
     return ident, frames
+
+
+def _register_heif() -> None:
+    global _heif_registered
+    if _heif_registered:
+        return
+    from pillow_heif import register_heif_opener
+
+    register_heif_opener()
+    _heif_registered = True
+
+
+def _heif_to_jpeg(path: Path, dest: Path) -> Path:
+    from PIL import Image
+
+    _register_heif()
+    jpeg = dest / f"{path.stem}.jpg"
+    try:
+        with Image.open(path) as image:
+            image.convert("RGB").save(jpeg, format="JPEG", quality=95)
+    except OSError as err:
+        raise VisionError(f"failed to decode still {path.name}") from err
+    if not jpeg.is_file():
+        raise VisionError(f"failed to decode still {path.name}")
+    return jpeg
 
 
 def _require_binary(name: str) -> str:
