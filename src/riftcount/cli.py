@@ -4,6 +4,7 @@ from pathlib import Path
 
 import typer
 
+from riftcount._evidence import capture_folder
 from riftcount._media import media_help
 from riftcount.count import count_paths
 from riftcount.errors import CountError, UsageError
@@ -57,22 +58,33 @@ def count(
         "--out",
         help="Also write the JSON here. The write uses a temp file and replace.",
     ),
+    evidence: Path | None = typer.Option(
+        None,
+        "--evidence",
+        help=(
+            "Also write labeled JPEGs of the counted frames here. "
+            "The next successful count replaces this directory."
+        ),
+    ),
 ) -> None:
     """Inventory each path. Copies are the max times a name appears in one frame."""
     try:
         weights = require_weights_dir(release)
-        report = count_paths(paths, release=weights)
+        report = count_paths(paths, release=weights, evidence=evidence)
         text = dumps_report(report)
         if out is not None:
             _write_out(out, text)
         sys.stdout.write(text)
-        for capture in report.captures:
+        for order, capture in enumerate(report.captures, start=1):
             copies = capture.inventory.estimated_cards
             print(
                 f"{capture.path.name} {capture.kind.value} {copies} copies, "
                 f"{capture.unnamed_boxes} unnamed, {capture.back_boxes} backs",
                 file=sys.stderr,
             )
+            if evidence is not None:
+                folder = capture_folder(evidence, order, capture.path)
+                print(f"evidence {capture.path.name} {folder.resolve()}", file=sys.stderr)
     except CountError as err:
         print(str(err), file=sys.stderr)
         raise typer.Exit(code=err.exit_code) from err
