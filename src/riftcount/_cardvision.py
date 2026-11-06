@@ -80,8 +80,6 @@ class Similarity:
 
 @dataclass(frozen=True, slots=True)
 class Guess:
-    """Refused topName. This is not a CardName and cannot enter an inventory line."""
-
     text: str
 
     def __post_init__(self) -> None:

@@ -42,7 +42,6 @@ _COLOR: dict[Caption, tuple[int, int, int]] = {
     Caption.BACK: (90, 150, 240),
 }
 
-# None is a solid stroke. Otherwise the pair is ink pixels, then gap pixels, along each edge.
 _DASH: dict[Caption, tuple[int, int] | None] = {
     Caption.COPY: None,
     Caption.REPEAT: (8, 6),
@@ -349,8 +348,6 @@ def _previous(dest: Path) -> Path:
 
 
 def _stage(dest: Path) -> Path:
-    # A crash while installing leaves the last good tree at DIR.previous.
-    # Put that tree back, then drop a partial that was never installed as DIR.
     partial = _partial(dest)
     previous = _previous(dest)
     if not _present(dest) and _present(previous):
