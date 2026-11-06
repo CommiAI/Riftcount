@@ -20,6 +20,26 @@ uv run riftcount count examples/videos/sample-riftbound.mp4
 
 Copies of a name are the most times that name appears in any single frame.
 
+## See the frames that were counted
+
+Pass `--evidence DIR` when you want the frames that `count` read. Each detection is labeled `copy`, `repeat`, `unnamed`, or `back`.
+
+```bash
+uv run riftcount count examples/videos/sample-riftbound.mp4 --evidence evidence/sample
+uv run riftcount count examples/photos/photo1-runes.jpg --out pack.json --evidence evidence/runes
+```
+
+Stdout stays the inventory JSON. `--out` still writes that JSON. A video is one MP4. A photo is one JPEG.
+
+```text
+evidence/sample/001-sample-riftbound.mp4/counted.mp4
+evidence/runes/001-photo1-runes.jpg/frame-0001.jpg
+```
+
+`001` is that capture's place in the JSON, starting at 1. `counted.mp4` is the camera video at its own frame rate. Each camera frame has the boxes found on that frame. The count still reads one frame every 0.5 seconds, and the inventory bar under the picture names those scored frames. A photo stays one JPEG, `frame-0001.jpg`. Leave `--evidence` off and `count` writes no pictures.
+
+A later successful count with the same directory replaces it. A failed count leaves `DIR` unchanged.
+
 ## Running tests
 
 ```bash

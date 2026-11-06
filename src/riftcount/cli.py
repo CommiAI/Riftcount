@@ -4,10 +4,11 @@ from pathlib import Path
 
 import typer
 
+from riftcount._evidence import COUNTED_MP4, capture_folder
 from riftcount._media import media_help
 from riftcount.count import count_paths
 from riftcount.errors import CountError, UsageError
-from riftcount.inventory import dumps_report
+from riftcount.inventory import CaptureKind, dumps_report
 from riftcount.weights import default_weights_dir, require_weights_dir, update_weights
 
 app = typer.Typer(
@@ -57,33 +58,52 @@ def count(
         "--out",
         help="Also write the JSON here. The write uses a temp file and replace.",
     ),
+    evidence: Path | None = typer.Option(
+        None,
+        "--evidence",
+        help=(
+            "Write the counted frames into this directory. "
+            "You get one labeled JPEG for a photo and one MP4 for a video. "
+            "The next successful count replaces this directory."
+        ),
+    ),
 ) -> None:
     """Inventory each path. Copies are the max times a name appears in one frame."""
     try:
+        if out is not None:
+            _require_out(out)
         weights = require_weights_dir(release)
-        report = count_paths(paths, release=weights)
+        report = count_paths(paths, release=weights, evidence=evidence)
         text = dumps_report(report)
         if out is not None:
             _write_out(out, text)
         sys.stdout.write(text)
-        for capture in report.captures:
+        for order, capture in enumerate(report.captures, start=1):
             copies = capture.inventory.estimated_cards
             print(
                 f"{capture.path.name} {capture.kind.value} {copies} copies, "
                 f"{capture.unnamed_boxes} unnamed, {capture.back_boxes} backs",
                 file=sys.stderr,
             )
+            if evidence is not None:
+                folder = capture_folder(evidence, order, capture.path)
+                shown = folder / COUNTED_MP4 if capture.kind is CaptureKind.VIDEO else folder
+                print(f"evidence {capture.path.name} {shown.resolve()}", file=sys.stderr)
     except CountError as err:
         print(str(err), file=sys.stderr)
         raise typer.Exit(code=err.exit_code) from err
 
 
-def _write_out(out: Path, text: str) -> None:
+def _require_out(out: Path) -> None:
     if out.exists() and out.is_dir():
         raise UsageError(f"output path is a directory: {out}")
     parent = out.parent
     if not parent.is_dir():
         raise UsageError(f"output directory not found: {parent}")
+
+
+def _write_out(out: Path, text: str) -> None:
+    _require_out(out)
     temporary = out.with_suffix(out.suffix + ".tmp")
     temporary.write_text(text, encoding="utf-8")
     os.replace(temporary, out)

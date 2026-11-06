@@ -1,5 +1,7 @@
 import json
+from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
@@ -30,15 +32,16 @@ def _sight() -> NamedSight:
 
 
 def _patch_reader(monkeypatch: pytest.MonkeyPatch, frames_for: dict[Path, tuple[Frame, ...]] | None = None) -> None:
-    def fake_read(path: Path, kind: object, release_dir: Path) -> tuple[str, tuple[Frame, ...]]:
+    @contextmanager
+    def fake_open(path: Path, kind: object, release_dir: Path):
         del kind, release_dir
         if frames_for is not None:
             frames = frames_for[path]
         else:
             frames = (Frame(path.name, (_sight(),), 0, 0),)
-        return "rel-1", frames
+        yield SimpleNamespace(release_id="rel-1", frames=frames)
 
-    monkeypatch.setattr("riftcount.count.read_capture", fake_read)
+    monkeypatch.setattr("riftcount.count.open_capture", fake_open)
 
 
 def test_no_verb_prints_help_and_exits_2() -> None:
@@ -65,6 +68,9 @@ def test_count_help_exits_0() -> None:
     assert result.exit_code == 0
     assert "--release" in result.output
     assert "--out" in result.output
+    assert "--evidence" in result.output
+    assert "JPEG" in result.output
+    assert "MP4" in result.output
     assert ".jpg" in result.output
     assert ".mp4" in result.output
     assert ".mov" in result.output
@@ -93,6 +99,7 @@ def test_two_paths_are_two_captures_and_a_repeat_is_one(
         ["count", "--release", str(release), str(first), str(second)],
     )
     assert pair.exit_code == 0, pair.output
+    assert "evidence " not in pair.stderr
     report = json.loads(pair.stdout)
     assert [Path(row["path"]).name for row in report["captures"]] == ["one.jpg", "two.jpg"]
     assert report["captures"][0]["inventory"]["estimated_cards"] == 1
@@ -129,13 +136,14 @@ def test_default_weights_dir_is_used_when_flag_is_omitted(
     release = _weights(tmp_path)
     seen: list[Path] = []
 
-    def fake_read(path: Path, kind: object, release_dir: Path) -> tuple[str, tuple[Frame, ...]]:
+    @contextmanager
+    def fake_open(path: Path, kind: object, release_dir: Path):
         del path, kind
         seen.append(release_dir)
-        return "rel-1", (Frame("one.jpg", (_sight(),), 2, 1),)
+        yield SimpleNamespace(release_id="rel-1", frames=(Frame("one.jpg", (_sight(),), 2, 1),))
 
     monkeypatch.setattr("riftcount.weights.default_weights_dir", lambda: release)
-    monkeypatch.setattr("riftcount.count.read_capture", fake_read)
+    monkeypatch.setattr("riftcount.count.open_capture", fake_open)
     result = runner.invoke(app, ["count", str(photo)])
     assert result.exit_code == 0, result.output
     assert seen == [release]
@@ -249,15 +257,64 @@ def test_vision_error_exits_3(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     photo = _photo(tmp_path)
     release = _weights(tmp_path)
 
-    def fake_read(path: Path, kind: object, release_dir: Path) -> tuple[str, tuple[Frame, ...]]:
+    @contextmanager
+    def fake_open(path: Path, kind: object, release_dir: Path):
         del path, kind, release_dir
         raise VisionError("cardvision infer failed for a.jpg")
+        yield
 
-    monkeypatch.setattr("riftcount.count.read_capture", fake_read)
+    monkeypatch.setattr("riftcount.count.open_capture", fake_open)
     result = runner.invoke(app, ["count", "--release", str(release), str(photo)])
     assert result.exit_code == 3
     assert result.stdout == ""
     assert "cardvision infer failed" in result.stderr
+
+
+def test_bad_out_does_not_publish_evidence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from PIL import Image
+
+    photo = tmp_path / "a.jpg"
+    Image.new("RGB", (40, 32), (0, 0, 0)).save(photo, format="JPEG", quality=95)
+    release = _weights(tmp_path)
+    evidence = tmp_path / "frames"
+    called: list[str] = []
+
+    def fake_which(name: str) -> str | None:
+        return "/usr/bin/cardvision" if name == "cardvision" else None
+
+    def fake_run(argv: list[str], **kwargs: object) -> object:
+        del argv, kwargs
+        called.append("infer")
+
+        class Proc:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return Proc()
+
+    monkeypatch.setattr("riftcount._cardvision.shutil.which", fake_which)
+    monkeypatch.setattr("riftcount._cardvision.subprocess.run", fake_run)
+    destination = tmp_path / "missing" / "pack.json"
+    result = runner.invoke(
+        app,
+        [
+            "count",
+            "--release",
+            str(release),
+            str(photo),
+            "--out",
+            str(destination),
+            "--evidence",
+            str(evidence),
+        ],
+    )
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert called == []
+    assert not destination.exists()
+    assert not evidence.exists()
+    assert not evidence.with_name("frames.partial").exists()
 
 
 def test_bad_out_directory_writes_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -286,3 +343,172 @@ def test_infer_argv_rejects_video_before_subprocess(tmp_path: Path, monkeypatch:
     video.write_bytes(b"mp4")
     with pytest.raises(VisionError):
         infer_argv("cardvision", tmp_path / "release.json", [video])
+
+
+def test_evidence_flag_writes_frames_and_prints_the_absolute_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from PIL import Image
+
+    monkeypatch.chdir(tmp_path)
+    Image.new("RGB", (40, 32), (0, 0, 0)).save(tmp_path / "one.jpg", format="JPEG", quality=95)
+    Image.new("RGB", (40, 32), (255, 255, 255)).save(tmp_path / "two.jpg", format="JPEG", quality=95)
+    release = _weights(tmp_path)
+
+    def fake_which(name: str) -> str | None:
+        return "/usr/bin/cardvision" if name == "cardvision" else None
+
+    def fake_run(argv: list[str], **kwargs: object) -> object:
+        del kwargs
+
+        class Proc:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        name = Path(argv[-1]).name
+        card = "Otterpus" if name == "one.jpg" else "Cloud Drake"
+        Proc.stdout = (
+            f'{{"frame": "{name}", "boxes": ['
+            f'{{"class": "face", "outcome": "named", "name": "{card}", '
+            f'"cardId": "OGN-001", "box": [4, 8, 16, 16]}}'
+            "]}\n"
+        )
+        return Proc()
+
+    monkeypatch.setattr("riftcount._cardvision.shutil.which", fake_which)
+    monkeypatch.setattr("riftcount._cardvision.subprocess.run", fake_run)
+    result = runner.invoke(
+        app,
+        ["count", "--release", str(release), "one.jpg", "two.jpg", "--evidence", "out"],
+    )
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert report["schema"] == "riftcount.inventory.v1"
+    assert "out/" not in result.stdout
+    one = (tmp_path / "out" / "001-one.jpg").resolve()
+    two = (tmp_path / "out" / "002-two.jpg").resolve()
+    assert result.stderr.splitlines() == [
+        "one.jpg still 1 copies, 0 unnamed, 0 backs",
+        f"evidence one.jpg {one}",
+        "two.jpg still 1 copies, 0 unnamed, 0 backs",
+        f"evidence two.jpg {two}",
+    ]
+    assert (one / "frame-0001.jpg").is_file()
+    assert (two / "frame-0001.jpg").is_file()
+
+
+def test_video_evidence_prints_the_counted_mp4(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from PIL import Image
+
+    from riftcount._cardvision import Detection, InferredJpeg, NamedFace, OpenedCapture, ParsedFrame, PixelBox
+    from riftcount._evidence import COUNTED_MP4
+    from riftcount.inventory import CardName, PrintingId
+
+    monkeypatch.chdir(tmp_path)
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"mp4")
+    jpeg = tmp_path / "frame.jpg"
+    Image.new("RGB", (32, 24), (0, 0, 0)).save(jpeg, format="JPEG", quality=95)
+    release = _weights(tmp_path)
+    face = NamedFace(CardName("Otterpus"), PrintingId("OGN-010"))
+    opened = OpenedCapture(
+        "abc",
+        (
+            InferredJpeg(
+                1,
+                jpeg,
+                ParsedFrame("frame-0001.jpg", (Detection(face, PixelBox(4, 4, 8, 8)),)),
+            ),
+        ),
+    )
+
+    @contextmanager
+    def fake_open(path: Path, kind: object, release_dir: Path):
+        del path, kind, release_dir
+        yield opened
+
+    def fake_run(argv: list[str], **kwargs: object) -> object:
+        del kwargs
+
+        class Proc:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        if argv[0] == "ffprobe":
+            Proc.stdout = "30/1\n"
+            return Proc()
+        if len(argv) > 1 and argv[1] == "infer":
+            images = [arg for arg in argv if arg.lower().endswith((".jpg", ".jpeg"))]
+            lines = [
+                json.dumps(
+                    {
+                        "frame": Path(image).name,
+                        "boxes": [
+                            {
+                                "class": "face",
+                                "outcome": "named",
+                                "name": "Otterpus",
+                                "cardId": "OGN-010",
+                                "box": [4, 4, 8, 8],
+                            }
+                        ],
+                    }
+                )
+                for image in images
+            ]
+            Proc.stdout = "\n".join(lines) + "\n"
+            return Proc()
+        assert argv[0] == "ffmpeg"
+        output = Path(argv[-1])
+        if output.name == COUNTED_MP4:
+            output.write_bytes(b"counted")
+            return Proc()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        name = output.name.replace("%08d", "00000001").replace("%04d", "0001")
+        Image.new("RGB", (32, 24), (0, 0, 0)).save(output.parent / name, format="JPEG", quality=95)
+        return Proc()
+
+    monkeypatch.setattr("riftcount.count.open_capture", fake_open)
+    monkeypatch.setattr("riftcount._evidence.subprocess.run", fake_run)
+    result = runner.invoke(
+        app,
+        ["count", "--release", str(release), "clip.mp4", "--evidence", "out"],
+    )
+    assert result.exit_code == 0, result.output
+    counted = (tmp_path / "out" / "001-clip.mp4" / COUNTED_MP4).resolve()
+    assert result.stderr.splitlines() == [
+        "clip.mp4 video 1 copies, 0 unnamed, 0 backs",
+        f"evidence clip.mp4 {counted}",
+    ]
+    assert counted.read_bytes() == b"counted"
+    assert sorted(path.name for path in counted.parent.iterdir()) == [COUNTED_MP4]
+
+
+def test_evidence_failure_prints_no_folder_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    photo = _photo(tmp_path)
+    release = _weights(tmp_path)
+    dest = tmp_path / "out"
+
+    @contextmanager
+    def boom(path: Path, kind: object, release_dir: Path):
+        del path, kind, release_dir
+        raise VisionError("cardvision infer failed for a.jpg")
+        yield
+
+    monkeypatch.setattr("riftcount.count.open_capture", boom)
+    result = runner.invoke(
+        app,
+        ["count", "--release", str(release), str(photo), "--evidence", str(dest)],
+    )
+    assert result.exit_code == 3
+    assert result.stdout == ""
+    assert "evidence " not in result.stderr
+    assert "cardvision infer failed" in result.stderr
+    assert not dest.exists()
+    assert not dest.with_name("out.partial").exists()
