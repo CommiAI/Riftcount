@@ -268,6 +268,53 @@ def test_vision_error_exits_3(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert "cardvision infer failed" in result.stderr
 
 
+def test_bad_out_does_not_publish_evidence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from PIL import Image
+
+    photo = tmp_path / "a.jpg"
+    Image.new("RGB", (40, 32), (0, 0, 0)).save(photo, format="JPEG", quality=95)
+    release = _weights(tmp_path)
+    evidence = tmp_path / "frames"
+    called: list[str] = []
+
+    def fake_which(name: str) -> str | None:
+        return "/usr/bin/cardvision" if name == "cardvision" else None
+
+    def fake_run(argv: list[str], **kwargs: object) -> object:
+        del argv, kwargs
+        called.append("infer")
+
+        class Proc:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return Proc()
+
+    monkeypatch.setattr("riftcount._cardvision.shutil.which", fake_which)
+    monkeypatch.setattr("riftcount._cardvision.subprocess.run", fake_run)
+    destination = tmp_path / "missing" / "pack.json"
+    result = runner.invoke(
+        app,
+        [
+            "count",
+            "--release",
+            str(release),
+            str(photo),
+            "--out",
+            str(destination),
+            "--evidence",
+            str(evidence),
+        ],
+    )
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert called == []
+    assert not destination.exists()
+    assert not evidence.exists()
+    assert not evidence.with_name("frames.partial").exists()
+
+
 def test_bad_out_directory_writes_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     photo = _photo(tmp_path)
     release = _weights(tmp_path)

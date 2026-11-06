@@ -69,6 +69,8 @@ def count(
 ) -> None:
     """Inventory each path. Copies are the max times a name appears in one frame."""
     try:
+        if out is not None:
+            _require_out(out)
         weights = require_weights_dir(release)
         report = count_paths(paths, release=weights, evidence=evidence)
         text = dumps_report(report)
@@ -90,12 +92,16 @@ def count(
         raise typer.Exit(code=err.exit_code) from err
 
 
-def _write_out(out: Path, text: str) -> None:
+def _require_out(out: Path) -> None:
     if out.exists() and out.is_dir():
         raise UsageError(f"output path is a directory: {out}")
     parent = out.parent
     if not parent.is_dir():
         raise UsageError(f"output directory not found: {parent}")
+
+
+def _write_out(out: Path, text: str) -> None:
+    _require_out(out)
     temporary = out.with_suffix(out.suffix + ".tmp")
     temporary.write_text(text, encoding="utf-8")
     os.replace(temporary, out)
