@@ -2,26 +2,31 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from riftcount._cardvision import open_capture
+from riftcount._evidence import evidence_run, write_evidence
 from riftcount._media import kind_for
 from riftcount.errors import UsageError, VisionError
 from riftcount.inventory import CaptureCount, CountReport, inventory_from_frames
 
 
-def count_paths(paths: Sequence[Path], *, release: Path) -> CountReport:
-    expanded = _expand(paths)
-    captures: list[CaptureCount] = []
-    release_ids: list[str] = []
-    for path in expanded:
-        kind = kind_for(path)
-        if kind is None:
-            raise UsageError(f"unsupported file: {path}")
-        with open_capture(path, kind, release) as opened:
-            frames = opened.frames
-            if not frames:
-                raise VisionError(f"cardvision infer returned no frames for {path.name}")
-            release_ids.append(opened.release_id)
-            captures.append(
-                CaptureCount(
+def count_paths(
+    paths: Sequence[Path],
+    *,
+    release: Path,
+    evidence: Path | None = None,
+) -> CountReport:
+    with evidence_run(evidence, paths) as stage:
+        expanded = _expand(paths)
+        captures: list[CaptureCount] = []
+        release_ids: list[str] = []
+        for order, path in enumerate(expanded, start=1):
+            kind = kind_for(path)
+            if kind is None:
+                raise UsageError(f"unsupported file: {path}")
+            with open_capture(path, kind, release) as opened:
+                frames = opened.frames
+                if not frames:
+                    raise VisionError(f"cardvision infer returned no frames for {path.name}")
+                capture = CaptureCount(
                     path=path,
                     kind=kind,
                     frames_read=len(frames),
@@ -29,10 +34,20 @@ def count_paths(paths: Sequence[Path], *, release: Path) -> CountReport:
                     back_boxes=sum(frame.backs for frame in frames),
                     inventory=inventory_from_frames(frames),
                 )
-            )
-    if len(set(release_ids)) != 1:
-        raise VisionError("captures disagree on release id")
-    return CountReport(release_id=release_ids[0], captures=tuple(captures))
+                if stage is not None:
+                    write_evidence(
+                        stage,
+                        order=order,
+                        release_id=opened.release_id,
+                        jpegs=opened.jpegs,
+                        frames=frames,
+                        capture=capture,
+                    )
+                release_ids.append(opened.release_id)
+                captures.append(capture)
+        if len(set(release_ids)) != 1:
+            raise VisionError("captures disagree on release id")
+        return CountReport(release_id=release_ids[0], captures=tuple(captures))
 
 
 def _expand(paths: Sequence[Path]) -> tuple[Path, ...]:
