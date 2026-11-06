@@ -10,7 +10,6 @@ import pytest
 from PIL import Image, ImageOps
 
 from riftcount._cardvision import (
-    FRAME_INTERVAL_S,
     BackFace,
     Detection,
     Guess,
@@ -22,6 +21,7 @@ from riftcount._cardvision import (
     UnnamedFace,
     frames_from_stdout,
     open_capture,
+    sample_filter,
 )
 from riftcount._evidence import (
     COUNTED_MP4,
@@ -32,6 +32,7 @@ from riftcount._evidence import (
     draw_box,
     evidence_run,
     footer_lines,
+    held_sample_index,
     paint_footer,
     write_evidence,
 )
@@ -101,6 +102,22 @@ def test_box_label_uses_the_caption_words() -> None:
     assert box_label(Caption.BACK, BackFace(), inventory) == BACK_LABEL
 
 
+def test_held_sample_index_covers_each_half_second_and_keeps_the_last() -> None:
+    assert held_sample_index(0, 3) == 0
+    assert held_sample_index(0.49, 3) == 0
+    assert held_sample_index(0.5, 3) == 1
+    assert held_sample_index(1.0, 2) == 1
+    assert held_sample_index(3.0, 2) == 1
+    with pytest.raises(ValueError):
+        held_sample_index(-0.01, 2)
+    with pytest.raises(ValueError):
+        held_sample_index(float("nan"), 2)
+    with pytest.raises(ValueError):
+        held_sample_index(float("inf"), 2)
+    with pytest.raises(ValueError):
+        held_sample_index(0, 0)
+
+
 def test_footer_lines_name_one_frame_a_tie_and_the_sums() -> None:
     inventory = _inventory(("Cloud Drake", "VEN-048", 2), ("Otterpus", "OGN-001", 1))
     capture = _capture("clip.mp4", CaptureKind.VIDEO, 5, 4, 0, inventory)
@@ -131,6 +148,131 @@ def _weights(directory: Path) -> Path:
     return release
 
 
+def _make_mp4(path: Path, size: tuple[int, int], colors: tuple[tuple[int, int, int], ...], fps: int) -> None:
+    folder = path.parent / f"{path.stem}-build"
+    folder.mkdir()
+    for index, color in enumerate(colors, start=1):
+        Image.new("RGB", size, color).save(folder / f"frame-{index:04d}.png")
+    proc = subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-framerate",
+            f"{fps}/1",
+            "-i",
+            str(folder / "frame-%04d.png"),
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+
+
+def _probe_video(path: Path, run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run) -> dict[str, object]:
+    proc = run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-count_frames",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=codec_type,codec_name,avg_frame_rate,nb_read_frames",
+            "-show_entries",
+            "format=nb_streams,duration",
+            "-of",
+            "json",
+            str(path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert isinstance(payload, dict)
+    return payload
+
+
+def _decode_frames(
+    video: Path,
+    dest: Path,
+    run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> list[Image.Image]:
+    dest.mkdir()
+    proc = run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(video),
+            str(dest / "frame-%04d.png"),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    images: list[Image.Image] = []
+    for path in sorted(dest.glob("frame-*.png")):
+        with Image.open(path) as image:
+            images.append(image.convert("RGB").copy())
+    return images
+
+
+def _rgb(image: Image.Image, x: int, y: int) -> tuple[int, int, int]:
+    pixel = image.getpixel((x, y))
+    assert isinstance(pixel, tuple)
+    return int(pixel[0]), int(pixel[1]), int(pixel[2])
+
+
+def _far(left: tuple[int, int, int], right: tuple[int, int, int]) -> bool:
+    return max(abs(left[channel] - right[channel]) for channel in range(3)) > 40
+
+
+def _closer(
+    pixel: tuple[int, int, int],
+    expected: tuple[int, int, int],
+    other: tuple[int, int, int],
+) -> bool:
+    def distance(origin: tuple[int, int, int]) -> int:
+        return sum((pixel[channel] - origin[channel]) ** 2 for channel in range(3))
+
+    return distance(expected) < distance(other)
+
+
+def _bottom_green(image: Image.Image, box: PixelBox) -> int:
+    y1 = int(box.y + box.height)
+    x0 = int(box.x)
+    x1 = int(box.x + box.width)
+    hits = 0
+    for x in range(max(0, x0), min(image.width, x1 + 1)):
+        for y in range(y1 - 3, y1 + 2):
+            if y < 0 or y >= image.height:
+                continue
+            red, green, blue = _rgb(image, x, y)
+            if green > 100 and green > red + 20 and green > blue:
+                hits += 1
+    return hits
+
+
+def _shows_box(image: Image.Image, box: PixelBox) -> bool:
+    return _bottom_green(image, box) >= 8
+
+
 def _jpeg(path: Path, size: tuple[int, int], color: tuple[int, int, int], exif: int | None = None) -> None:
     image = Image.new("RGB", size, color)
     kwargs: dict[str, object] = {"format": "JPEG", "quality": JPEG_QUALITY, "subsampling": JPEG_SUBSAMPLING}
@@ -146,7 +288,7 @@ def _patch(
     *,
     stdout: str | None = None,
     by_name: dict[str, str] | None = None,
-    ffmpeg: Callable[[list[str]], int | None] | None = None,
+    ffmpeg: Callable[[list[str]], int | None | subprocess.CompletedProcess[str]] | None = None,
 ) -> None:
     def fake_which(name: str) -> str | None:
         if name == "cardvision":
@@ -164,11 +306,15 @@ def _patch(
                 self.stdout = text
                 self.stderr = ""
 
-        if argv[0] == "ffmpeg":
+        if argv[0] in {"ffmpeg", "ffprobe"}:
             assert ffmpeg is not None
-            code = ffmpeg(argv)
+            outcome = ffmpeg(argv)
+            if isinstance(outcome, subprocess.CompletedProcess):
+                return outcome
             proc = Proc("")
-            proc.returncode = 0 if code is None else code
+            proc.returncode = 0 if outcome is None else outcome
+            if argv[0] == "ffprobe" and proc.returncode == 0:
+                proc.stdout = "30/1\n"
             return proc
         if by_name is not None:
             release_at = argv.index("--release")
@@ -410,54 +556,48 @@ def test_two_captures_are_numbered_in_order(tmp_path: Path, monkeypatch: pytest.
 def test_tie_frames_are_both_copy_and_match_the_extracted_jpegs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    size = (96, 80)
+    colors = ((12, 18, 40), (230, 230, 230), (170, 40, 40), (40, 40, 170), (24, 24, 24))
     video = tmp_path / "clip.mp4"
-    video.write_bytes(b"mp4")
+    _make_mp4(video, size, colors, 2)
     release = _weights(tmp_path)
-    colors = ((0, 0, 0), (255, 255, 255), (40, 200, 110), (240, 170, 40), (20, 20, 20))
     sources: list[Path] = []
     for index, color in enumerate(colors, start=1):
         path = tmp_path / f"src-{index}.jpg"
-        _jpeg(path, (96, 64), color)
+        _jpeg(path, size, color)
         sources.append(path)
-    one = PixelBox(20, 24, 24, 24)
-    two = PixelBox(52, 24, 24, 24)
+    one = PixelBox(16, 36, 20, 20)
+    two = PixelBox(56, 36, 20, 20)
+    real_run = subprocess.run
 
-    def expected(index: int, src: Path) -> bytes:
-        copy = index in {2, 5}
-        label = "Cloud Drake · VEN-048 · copy" if copy else "Cloud Drake · VEN-048 · repeat, not added"
-        caption = Caption.COPY if copy else Caption.REPEAT
-        marks = [(one, caption, label)]
-        if copy:
-            marks.append((two, caption, label))
-        lines = (
-            f"001-clip.mp4 · video · release rel-1 · frame {index}/5 · 96×64 decoded pixels, EXIF ignored",
-            "copies are the busiest frame, not a sum",
-            "  Cloud Drake ×2 (frames 2, 5)",
-            "unnamed sum 0 (each unnamed box adds 1) · back sum 0 (each back box adds 1)",
-        )
-        return _paint(src, marks, lines)
-
-    def ffmpeg(argv: list[str]) -> int:
-        output = Path(argv[-1])
-        if output.name == COUNTED_MP4:
+    def ffmpeg(argv: list[str]) -> int | subprocess.CompletedProcess[str]:
+        if sample_filter() in argv:
+            dest = Path(argv[-1]).parent
             for index, src in enumerate(sources, start=1):
-                painted = output.parent / f"frame-{index:04d}.jpg"
-                assert painted.read_bytes() == expected(index, src)
-            output.write_bytes(b"counted-mp4")
+                (dest / f"frame-{index:04d}.jpg").write_bytes(src.read_bytes())
             return 0
-        dest = output.parent
-        for index, src in enumerate(sources, start=1):
-            (dest / f"frame-{index:04d}.jpg").write_bytes(src.read_bytes())
-        return 0
+        return real_run(argv, check=False, capture_output=True, text=True)
 
     documents: list[str] = []
     for index in range(1, 6):
         boxes: list[dict[str, object]] = [
-            {"class": "face", "outcome": "named", "name": "Cloud Drake", "cardId": "VEN-048", "box": [20, 24, 24, 24]}
+            {
+                "class": "face",
+                "outcome": "named",
+                "name": "Cloud Drake",
+                "cardId": "VEN-048",
+                "box": [one.x, one.y, one.width, one.height],
+            }
         ]
         if index in {2, 5}:
             boxes.append(
-                {"class": "face", "outcome": "named", "name": "Cloud Drake", "cardId": "VEN-048", "box": [52, 24, 24, 24]}
+                {
+                    "class": "face",
+                    "outcome": "named",
+                    "name": "Cloud Drake",
+                    "cardId": "VEN-048",
+                    "box": [two.x, two.y, two.width, two.height],
+                }
             )
         documents.append(_line({"frame": f"frame-{index:04d}.jpg", "boxes": boxes}))
     _patch(monkeypatch, stdout="".join(documents), ffmpeg=ffmpeg)
@@ -477,39 +617,53 @@ def test_tie_frames_are_both_copy_and_match_the_extracted_jpegs(
         for index in range(1, 6)
     ]
     assert inventory_from_frames(frames).lines[0].copies == 2
-    assert (folder / COUNTED_MP4).read_bytes() == b"counted-mp4"
+    published = folder / COUNTED_MP4
     assert sorted(path.name for path in folder.iterdir()) == [COUNTED_MP4]
-    assert not (folder / "frame-0001.jpg").exists()
+    payload = _probe_video(published, real_run)
+    assert payload["format"]["nb_streams"] == 1
+    streams = payload["streams"]
+    assert isinstance(streams, list)
+    assert [stream["codec_type"] for stream in streams] == ["video"]
+    assert streams[0]["avg_frame_rate"] == "2/1"
+    assert streams[0]["nb_read_frames"] == "5"
+    assert float(payload["format"]["duration"]) == pytest.approx(2.5, abs=0.05)
+    decoded = _decode_frames(published, tmp_path / "tie-decoded", real_run)
+    assert len(decoded) == 5
+    for index, image in enumerate(decoded):
+        assert _shows_box(image, one)
+        assert _shows_box(image, two) == (index in {1, 4})
     cited = {CardName("Cloud Drake"): (2, 5)}
     capture = report.captures[0]
-    assert footer_lines(1, "rel-1", 2, 96, 64, capture, cited)[2] == "  Cloud Drake ×2 (frames 2, 5)"
+    assert footer_lines(1, "rel-1", 2, 96, 80, capture, cited)[2] == "  Cloud Drake ×2 (frames 2, 5)"
 
 
 def test_shorter_rerun_leaves_only_the_new_frames(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    size = (64, 64)
+    camera = ((10, 12, 30), (200, 200, 200))
     video = tmp_path / "clip.mp4"
-    video.write_bytes(b"mp4")
+    _make_mp4(video, size, camera, 2)
     release = _weights(tmp_path)
     holder: dict[str, list[Path]] = {}
+    real_run = subprocess.run
+    box_a = [8, 32, 16, 16]
+    box_b = [40, 32, 16, 16]
 
-    def ffmpeg(argv: list[str]) -> int:
-        output = Path(argv[-1])
-        if output.name == COUNTED_MP4:
-            painted = sorted(path for path in output.parent.glob("frame-*.jpg") if path.is_file())
-            output.write_bytes(b"".join(path.read_bytes() for path in painted))
+    def ffmpeg(argv: list[str]) -> int | subprocess.CompletedProcess[str]:
+        if sample_filter() in argv:
+            dest = Path(argv[-1]).parent
+            for index, src in enumerate(holder["sources"], start=1):
+                (dest / f"frame-{index:04d}.jpg").write_bytes(src.read_bytes())
             return 0
-        dest = output.parent
-        for index, src in enumerate(holder["sources"], start=1):
-            (dest / f"frame-{index:04d}.jpg").write_bytes(src.read_bytes())
-        return 0
+        return real_run(argv, check=False, capture_output=True, text=True)
 
-    def use(colors: tuple[tuple[int, int, int], ...]) -> str:
+    def use(colors: tuple[tuple[int, int, int], ...], boxes: tuple[list[int], ...]) -> str:
         sources: list[Path] = []
         lines: list[str] = []
         for index, color in enumerate(colors, start=1):
             path = tmp_path / f"hold-{len(colors)}-{index}.jpg"
-            _jpeg(path, (64, 48), color)
+            _jpeg(path, size, color)
             sources.append(path)
             lines.append(
                 _line(
@@ -521,7 +675,7 @@ def test_shorter_rerun_leaves_only_the_new_frames(
                                 "outcome": "named",
                                 "name": "Otterpus",
                                 "cardId": "OGN-010",
-                                "box": [8, 16, 20, 20],
+                                "box": boxes[index - 1],
                             }
                         ],
                     }
@@ -530,31 +684,35 @@ def test_shorter_rerun_leaves_only_the_new_frames(
         holder["sources"] = sources
         return "".join(lines)
 
-    _patch(monkeypatch, stdout=use(((0, 0, 0), (255, 255, 255))), ffmpeg=ffmpeg)
+    _patch(monkeypatch, stdout=use(((0, 0, 0), (255, 255, 255)), (box_a, box_b)), ffmpeg=ffmpeg)
     dest = tmp_path / "evidence"
     count_paths([video], release=release, evidence=dest)
     folder = dest / "001-clip.mp4"
+    published = folder / COUNTED_MP4
     assert sorted(path.name for path in folder.iterdir()) == [COUNTED_MP4]
+    first = _decode_frames(published, tmp_path / "rerun-first", real_run)
+    assert _shows_box(first[1], PixelBox(*box_b))
+    assert not _shows_box(first[1], PixelBox(*box_a))
     (dest / "stale.txt").write_text("stale", encoding="utf-8")
-    _patch(monkeypatch, stdout=use(((240, 170, 40),)), ffmpeg=ffmpeg)
+    _patch(monkeypatch, stdout=use(((240, 170, 40),), (box_a,)), ffmpeg=ffmpeg)
     count_paths([video], release=release, evidence=dest)
-    amber = holder["sources"][0]
-    lines = (
-        "001-clip.mp4 · video · release rel-1 · frame 1/1 · 64×48 decoded pixels, EXIF ignored",
-        "copies are the busiest frame, not a sum",
-        "  Otterpus ×1 (frame 1)",
-        "unnamed sum 0 (each unnamed box adds 1) · back sum 0 (each back box adds 1)",
-    )
-    assert (folder / COUNTED_MP4).read_bytes() == _paint(
-        amber,
-        [(PixelBox(8, 16, 20, 20), Caption.COPY, "Otterpus · OGN-010 · copy")],
-        lines,
-    )
     assert sorted(path.name for path in folder.iterdir()) == [COUNTED_MP4]
     assert not (folder / "frame-0002.jpg").exists()
     assert not (dest / "stale.txt").exists()
     assert not _partial(dest).exists()
     assert not _previous(dest).exists()
+    payload = _probe_video(published, real_run)
+    assert payload["streams"][0]["avg_frame_rate"] == "2/1"
+    assert payload["streams"][0]["nb_read_frames"] == "2"
+    assert float(payload["format"]["duration"]) == pytest.approx(1.0, abs=0.05)
+    second = _decode_frames(published, tmp_path / "rerun-second", real_run)
+    assert len(second) == 2
+    assert _far(_rgb(second[0], 2, 2), _rgb(second[1], 2, 2))
+    assert _closer(_rgb(second[0], 2, 2), camera[0], (240, 170, 40))
+    assert _closer(_rgb(second[1], 2, 2), camera[1], (240, 170, 40))
+    for image in second:
+        assert _shows_box(image, PixelBox(*box_a))
+        assert not _shows_box(image, PixelBox(*box_b))
 
 
 def test_failure_does_not_install_partial_over_a_missing_or_previous_tree(
@@ -775,6 +933,8 @@ def test_encode_failure_leaves_dir_absent_or_on_the_previous_tree(
     fail = {"encode": True}
 
     def ffmpeg(argv: list[str]) -> int:
+        if argv[0] == "ffprobe":
+            return 0
         output = Path(argv[-1])
         if output.name == COUNTED_MP4:
             if fail["encode"]:
@@ -795,7 +955,7 @@ def test_encode_failure_leaves_dir_absent_or_on_the_previous_tree(
     count_paths([video], release=release, evidence=dest)
     before = _files(dest)
     assert (dest / "001-clip.mp4" / COUNTED_MP4).read_bytes() == b"counted"
-    assert not (dest / "001-clip.mp4" / "frame-0001.jpg").exists()
+    assert sorted(path.name for path in (dest / "001-clip.mp4").iterdir()) == [COUNTED_MP4]
 
     fail["encode"] = True
     with pytest.raises(VisionError, match="ffmpeg failed on clip.mp4"):
@@ -806,29 +966,27 @@ def test_encode_failure_leaves_dir_absent_or_on_the_previous_tree(
 
 
 def test_counted_video_is_an_mp4_a_player_can_open(tmp_path: Path) -> None:
-    ffprobe = shutil.which("ffprobe")
-    if ffprobe is None:
-        pytest.fail("ffprobe is not on PATH")
-    sources: list[Path] = []
-    for index, color in enumerate(((10, 20, 30), (200, 10, 10)), start=1):
-        path = tmp_path / f"src-{index}.jpg"
-        _jpeg(path, (17, 21), color)
-        sources.append(path)
+    if shutil.which("ffprobe") is None or shutil.which("ffmpeg") is None:
+        pytest.fail("ffmpeg is not on PATH")
+    size = (80, 64)
+    colors = ((10, 20, 80), (140, 30, 30), (90, 40, 140), (180, 140, 40))
+    video = tmp_path / "clip.mp4"
+    _make_mp4(video, size, colors, 4)
+    scored = []
+    for index in (1, 2):
+        path = tmp_path / f"sample-{index}.jpg"
+        _jpeg(path, size, (128, 128, 128))
+        scored.append(path)
     name = CardName("Otterpus")
     printing = PrintingId("OGN-010")
-    box = PixelBox(2, 2, 8, 8)
     face = NamedFace(name, printing)
-    jpegs = tuple(
-        InferredJpeg(
-            index,
-            path,
-            ParsedFrame(f"frame-{index:04d}.jpg", (Detection(face, box),)),
-        )
-        for index, path in enumerate(sources, start=1)
+    box_a = PixelBox(8, 32, 18, 16)
+    box_b = PixelBox(48, 32, 18, 16)
+    jpegs = (
+        InferredJpeg(1, scored[0], ParsedFrame("frame-0001.jpg", (Detection(face, box_a),))),
+        InferredJpeg(2, scored[1], ParsedFrame("frame-0002.jpg", (Detection(face, box_b),))),
     )
     frames = tuple(Frame(jpeg.parsed.label, (NamedSight(name, printing),), 0, 0) for jpeg in jpegs)
-    video = tmp_path / "clip.mp4"
-    video.write_bytes(b"not-a-video")
     capture = CaptureCount(video, CaptureKind.VIDEO, len(frames), 0, 0, inventory_from_frames(frames))
     dest = tmp_path / "evidence"
     with evidence_run(dest, [video]) as stage:
@@ -845,24 +1003,59 @@ def test_counted_video_is_an_mp4_a_player_can_open(tmp_path: Path) -> None:
     folder = published.parent
     assert sorted(path.name for path in folder.iterdir()) == [COUNTED_MP4]
     assert list(dest.rglob("frame-*.jpg")) == []
-    proc = subprocess.run(
-        [
-            ffprobe,
-            "-v",
-            "error",
-            "-show_entries",
-            "stream=codec_type,codec_name:format=nb_streams,duration",
-            "-of",
-            "json",
-            str(published),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0, proc.stderr
-    payload = json.loads(proc.stdout)
+    payload = _probe_video(published)
     assert payload["format"]["nb_streams"] == 1
-    assert [stream["codec_type"] for stream in payload["streams"]] == ["video"]
-    duration = float(payload["format"]["duration"])
-    assert duration == pytest.approx(2 * FRAME_INTERVAL_S, abs=0.05)
+    streams = payload["streams"]
+    assert isinstance(streams, list)
+    assert [stream["codec_type"] for stream in streams] == ["video"]
+    assert streams[0]["avg_frame_rate"] == "4/1"
+    assert streams[0]["nb_read_frames"] == "4"
+    assert float(payload["format"]["duration"]) == pytest.approx(1.0, abs=0.05)
+    decoded = _decode_frames(published, tmp_path / "counted-decoded")
+    assert len(decoded) == 4
+    assert _far(_rgb(decoded[0], 2, 2), _rgb(decoded[1], 2, 2))
+    assert _closer(_rgb(decoded[0], 2, 2), colors[0], (128, 128, 128))
+    assert _closer(_rgb(decoded[1], 2, 2), colors[1], (128, 128, 128))
+    assert _shows_box(decoded[0], box_a)
+    assert _shows_box(decoded[1], box_a)
+    assert not _shows_box(decoded[0], box_b)
+    assert not _shows_box(decoded[1], box_b)
+    assert _shows_box(decoded[2], box_b)
+    assert not _shows_box(decoded[2], box_a)
+    assert _far(_rgb(decoded[2], 2, 2), _rgb(decoded[0], 2, 2))
+    assert _far(_rgb(decoded[2], 2, 2), _rgb(decoded[1], 2, 2))
+
+
+def test_source_frame_size_must_match_the_inferred_jpeg(tmp_path: Path) -> None:
+    if shutil.which("ffmpeg") is None:
+        pytest.fail("ffmpeg is not on PATH")
+    video = tmp_path / "clip.mp4"
+    _make_mp4(video, (32, 32), ((20, 20, 20),), 4)
+    jpeg = tmp_path / "frame-0001.jpg"
+    _jpeg(jpeg, (16, 16), (0, 0, 0))
+    name = CardName("Otterpus")
+    printing = PrintingId("OGN-010")
+    face = NamedFace(name, printing)
+    jpegs = (
+        InferredJpeg(
+            1,
+            jpeg,
+            ParsedFrame("frame-0001.jpg", (Detection(face, PixelBox(2, 2, 8, 8)),)),
+        ),
+    )
+    frames = (Frame(jpegs[0].parsed.label, (NamedSight(name, printing),), 0, 0),)
+    capture = CaptureCount(video, CaptureKind.VIDEO, 1, 0, 0, inventory_from_frames(frames))
+    dest = tmp_path / "evidence"
+    with pytest.raises(VisionError):
+        with evidence_run(dest, [video]) as stage:
+            assert stage is not None
+            write_evidence(
+                stage,
+                order=1,
+                release_id="rel-1",
+                jpegs=jpegs,
+                frames=frames,
+                capture=capture,
+            )
+    assert not dest.exists()
+    assert not _partial(dest).exists()

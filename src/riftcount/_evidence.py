@@ -3,9 +3,11 @@ from __future__ import annotations
 import math
 import shutil
 import subprocess
+import tempfile
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from enum import Enum
+from fractions import Fraction
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -148,6 +150,23 @@ def capture_folder(dest: Path, order: int, source: Path) -> Path:
     return dest / f"{order:03d}-{source.name}"
 
 
+def held_sample_index(time_s: float | Fraction, sample_count: int) -> int:
+    if isinstance(sample_count, bool) or not isinstance(sample_count, int) or sample_count < 1:
+        raise ValueError("sample_count must be an integer >= 1")
+    if isinstance(time_s, bool) or not isinstance(time_s, (int, float, Fraction)):
+        raise ValueError("time_s must be a finite number >= 0")
+    try:
+        time = Fraction(time_s)
+    except (OverflowError, ValueError) as err:
+        raise ValueError("time_s must be a finite number >= 0") from err
+    if time < 0:
+        raise ValueError("time_s must be a finite number >= 0")
+    interval = Fraction(FRAME_INTERVAL_S)
+    if time >= sample_count * interval:
+        return sample_count - 1
+    return math.floor(time / interval)
+
+
 def write_evidence(
     stage: Path,
     *,
@@ -164,17 +183,12 @@ def write_evidence(
     cited = _cited(frames, capture.inventory)
     folder = capture_folder(stage, order, capture.path)
     folder.mkdir()
+    if capture.kind is CaptureKind.VIDEO:
+        _write_counted_video(folder, order, release_id, jpegs, capture, cited)
+        return
     for jpeg in jpegs:
         image = _open_rgb(jpeg.path)
-        for detection in jpeg.parsed.detections:
-            box = detection.box
-            if box is None:
-                raise VisionError(f"{capture.path.name} frame {jpeg.index} has a detection with no box")
-            caption = _caption(detection.face, jpeg.index, cited)
-            label = box_label(caption, detection.face, capture.inventory)
-            draw_box(image, box, caption, label)
-        lines = footer_lines(order, release_id, jpeg.index, image.width, image.height, capture, cited)
-        painted = paint_footer(image, lines)
+        painted = _paint_sample(image, jpeg, order, release_id, capture, cited)
         destination = folder / f"frame-{jpeg.index:04d}.jpg"
         painted.save(
             destination,
@@ -182,8 +196,6 @@ def write_evidence(
             quality=JPEG_QUALITY,
             subsampling=JPEG_SUBSAMPLING,
         )
-    if capture.kind is CaptureKind.VIDEO:
-        _encode_counted_video(folder, capture.path.name, len(jpegs))
 
 
 @contextmanager
@@ -202,8 +214,122 @@ def evidence_run(dest: Path | None, inputs: Sequence[Path]) -> Iterator[Path | N
         _install(dest, partial)
 
 
-def _counted_video_argv(folder: Path) -> list[str]:
-    rate = 1 / FRAME_INTERVAL_S
+def _paint_sample(
+    image: Image.Image,
+    jpeg: InferredJpeg,
+    order: int,
+    release_id: str,
+    capture: CaptureCount,
+    cited: Mapping[CardName, Sequence[int]],
+) -> Image.Image:
+    for detection in jpeg.parsed.detections:
+        box = detection.box
+        if box is None:
+            raise VisionError(f"{capture.path.name} frame {jpeg.index} has a detection with no box")
+        caption = _caption(detection.face, jpeg.index, cited)
+        label = box_label(caption, detection.face, capture.inventory)
+        draw_box(image, box, caption, label)
+    lines = footer_lines(order, release_id, jpeg.index, image.width, image.height, capture, cited)
+    return paint_footer(image, lines)
+
+
+def _write_counted_video(
+    folder: Path,
+    order: int,
+    release_id: str,
+    jpegs: Sequence[InferredJpeg],
+    capture: CaptureCount,
+    cited: Mapping[CardName, Sequence[int]],
+) -> None:
+    rate = _source_frame_rate(capture.path)
+    reference = _open_rgb(jpegs[0].path)
+    painted: list[Path] = []
+    with tempfile.TemporaryDirectory(prefix="riftcount-") as tmp:
+        for index, source in enumerate(_extract_source_frames(capture.path, Path(tmp))):
+            image = _open_rgb(source)
+            if image.size != reference.size:
+                raise VisionError(
+                    f"{capture.path.name} frame {index + 1} is {image.width}×{image.height}, "
+                    f"not {reference.width}×{reference.height}"
+                )
+            sample = jpegs[held_sample_index(Fraction(index, 1) / rate, len(jpegs))]
+            canvas = _paint_sample(image, sample, order, release_id, capture, cited)
+            path = folder / f"frame-{index + 1:08d}.jpg"
+            canvas.save(
+                path,
+                format="JPEG",
+                quality=JPEG_QUALITY,
+                subsampling=JPEG_SUBSAMPLING,
+            )
+            painted.append(path)
+    _encode_counted_video(folder, capture.path.name, rate, painted)
+
+
+def _source_frame_rate(video: Path) -> Fraction:
+    proc = _ffmpeg_tool(
+        [
+            "ffprobe",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=avg_frame_rate",
+            "-of",
+            "csv=p=0",
+            str(video),
+        ],
+        video.name,
+    )
+    if proc.returncode != 0:
+        raise VisionError(f"ffmpeg failed on {video.name}")
+    try:
+        rate = Fraction(proc.stdout.strip())
+    except (ValueError, ZeroDivisionError) as err:
+        raise VisionError(f"ffmpeg failed on {video.name}") from err
+    if rate <= 0:
+        raise VisionError(f"ffmpeg failed on {video.name}")
+    return rate
+
+
+def _extract_source_frames(video: Path, dest: Path) -> tuple[Path, ...]:
+    proc = _ffmpeg_tool(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(video),
+            "-q:v",
+            "2",
+            str(dest / "frame-%08d.jpg"),
+        ],
+        video.name,
+    )
+    if proc.returncode != 0:
+        raise VisionError(f"ffmpeg failed on {video.name}")
+    frames = tuple(
+        sorted(
+            (path for path in dest.glob("frame-*.jpg") if path.is_file()),
+            key=lambda path: int(path.stem.rsplit("-", 1)[1]),
+        )
+    )
+    if not frames:
+        raise VisionError(f"ffmpeg failed on {video.name}")
+    return frames
+
+
+def _ffmpeg_tool(argv: list[str], source_name: str) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(argv, check=False, capture_output=True, text=True)
+    except OSError as err:
+        raise VisionError(f"ffmpeg failed on {source_name}") from err
+
+
+def _counted_video_argv(folder: Path, frame_rate: Fraction) -> list[str]:
     return [
         "ffmpeg",
         "-hide_banner",
@@ -211,11 +337,11 @@ def _counted_video_argv(folder: Path) -> list[str]:
         "error",
         "-y",
         "-framerate",
-        f"{rate:g}",
+        f"{frame_rate.numerator}/{frame_rate.denominator}",
         "-start_number",
         "1",
         "-i",
-        str(folder / "frame-%04d.jpg"),
+        str(folder / "frame-%08d.jpg"),
         # yuv420p rejects an odd footer height.
         "-vf",
         "pad=ceil(iw/2)*2:ceil(ih/2)*2",
@@ -229,18 +355,18 @@ def _counted_video_argv(folder: Path) -> list[str]:
     ]
 
 
-def _encode_counted_video(folder: Path, source_name: str, frame_count: int) -> None:
-    proc = subprocess.run(
-        _counted_video_argv(folder),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+def _encode_counted_video(
+    folder: Path,
+    source_name: str,
+    frame_rate: Fraction,
+    painted: Sequence[Path],
+) -> None:
+    proc = _ffmpeg_tool(_counted_video_argv(folder, frame_rate), source_name)
     video = folder / COUNTED_MP4
     if proc.returncode != 0 or not video.is_file():
         raise VisionError(f"ffmpeg failed on {source_name}")
-    for index in range(1, frame_count + 1):
-        (folder / f"frame-{index:04d}.jpg").unlink()
+    for path in painted:
+        path.unlink()
 
 
 def _line(inventory: Inventory, name: CardName) -> InventoryLine:

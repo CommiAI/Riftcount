@@ -438,10 +438,17 @@ def test_video_evidence_prints_the_counted_mp4(
             stdout = ""
             stderr = ""
 
-        output = Path(argv[-1])
+        if argv[0] == "ffprobe":
+            Proc.stdout = "30/1\n"
+            return Proc()
         assert argv[0] == "ffmpeg"
-        assert output.name == COUNTED_MP4
-        output.write_bytes(b"counted")
+        output = Path(argv[-1])
+        if output.name == COUNTED_MP4:
+            output.write_bytes(b"counted")
+            return Proc()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        name = output.name.replace("%08d", "00000001").replace("%04d", "0001")
+        Image.new("RGB", (32, 24), (0, 0, 0)).save(output.parent / name, format="JPEG", quality=95)
         return Proc()
 
     monkeypatch.setattr("riftcount.count.open_capture", fake_open)
@@ -457,7 +464,7 @@ def test_video_evidence_prints_the_counted_mp4(
         f"evidence clip.mp4 {counted}",
     ]
     assert counted.read_bytes() == b"counted"
-    assert not (counted.parent / "frame-0001.jpg").exists()
+    assert sorted(path.name for path in counted.parent.iterdir()) == [COUNTED_MP4]
 
 
 def test_evidence_failure_prints_no_folder_line(
