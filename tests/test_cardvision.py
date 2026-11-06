@@ -166,3 +166,95 @@ def test_mov_video_uses_the_same_ffmpeg_extract_path(
     assert frames[0].named[0].name.text == "Otterpus"
     assert calls[0][0] == "ffmpeg"
     assert str(video) in calls[0]
+
+
+def test_open_capture_keeps_video_jpegs_until_the_caller_returns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from riftcount._cardvision import open_capture
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"mp4")
+    release = tmp_path / "weights"
+    release.mkdir()
+    (release / "release.json").write_text('{"id": "abc"}\n', encoding="utf-8")
+
+    def fake_which(name: str) -> str | None:
+        if name in {"ffmpeg", "cardvision"}:
+            return f"/usr/bin/{name}"
+        return None
+
+    def fake_run(argv: list[str], **kwargs: object) -> object:
+        del kwargs
+
+        class Proc:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        if argv[0] == "ffmpeg":
+            pattern = Path(argv[-1])
+            jpeg = pattern.parent / "frame-0001.jpg"
+            jpeg.write_bytes(b"jpeg-bytes")
+            return Proc()
+        Proc.stdout = (
+            '{"frame": "frame-0001.jpg", "boxes": ['
+            '{"class": "face", "outcome": "named", "name": "Otterpus", "cardId": "OGN-010"}'
+            "]}\n"
+        )
+        return Proc()
+
+    monkeypatch.setattr("riftcount._cardvision.shutil.which", fake_which)
+    monkeypatch.setattr("riftcount._cardvision.subprocess.run", fake_run)
+    with open_capture(video, CaptureKind.VIDEO, release) as opened:
+        held = opened.jpegs[0].path
+        assert held.is_file()
+        assert held.read_bytes() == b"jpeg-bytes"
+        assert opened.frames[0].named[0].name.text == "Otterpus"
+    assert video.is_file()
+    assert not held.exists()
+
+
+def test_open_capture_does_not_delete_a_caller_jpeg(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from riftcount._cardvision import UnnamedFace, open_capture
+
+    photo = tmp_path / "card.jpg"
+    photo.write_bytes(b"jpeg-bytes")
+    release = tmp_path / "weights"
+    release.mkdir()
+    (release / "release.json").write_text('{"id": "abc"}\n', encoding="utf-8")
+
+    def fake_which(name: str) -> str | None:
+        return "/usr/bin/cardvision" if name == "cardvision" else None
+
+    def fake_run(argv: list[str], **kwargs: object) -> object:
+        del kwargs
+
+        class Proc:
+            returncode = 0
+            stdout = (
+                '{"frame": "card.jpg", "boxes": ['
+                '{"class": "face", "outcome": "nothing", "topName": "Riptide Rex"}'
+                "]}\n"
+            )
+            stderr = ""
+
+        assert Path(argv[-1]) == photo
+        return Proc()
+
+    monkeypatch.setattr("riftcount._cardvision.shutil.which", fake_which)
+    monkeypatch.setattr("riftcount._cardvision.subprocess.run", fake_run)
+    with open_capture(photo, CaptureKind.STILL, release) as opened:
+        assert opened.jpegs[0].path == photo
+        detection = opened.jpegs[0].parsed.detections[0]
+        assert detection.box is None
+        assert isinstance(detection.face, UnnamedFace)
+        assert detection.face.guess is not None
+        assert detection.face.guess.text == "Riptide Rex"
+        frame = opened.frames[0]
+        assert frame.unnamed == 1
+        assert frame.named == ()
+        assert "Riptide Rex" not in str(frame)
+    assert photo.read_bytes() == b"jpeg-bytes"

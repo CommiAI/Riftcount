@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from pathlib import Path
 
-from riftcount._cardvision import read_capture
+from riftcount._cardvision import open_capture
 from riftcount._media import kind_for
 from riftcount.errors import UsageError, VisionError
 from riftcount.inventory import CaptureCount, CountReport, inventory_from_frames
@@ -15,20 +15,21 @@ def count_paths(paths: Sequence[Path], *, release: Path) -> CountReport:
         kind = kind_for(path)
         if kind is None:
             raise UsageError(f"unsupported file: {path}")
-        ident, frames = read_capture(path, kind, release)
-        if not frames:
-            raise VisionError(f"cardvision infer returned no frames for {path.name}")
-        release_ids.append(ident)
-        captures.append(
-            CaptureCount(
-                path=path,
-                kind=kind,
-                frames_read=len(frames),
-                unnamed_boxes=sum(frame.unnamed for frame in frames),
-                back_boxes=sum(frame.backs for frame in frames),
-                inventory=inventory_from_frames(frames),
+        with open_capture(path, kind, release) as opened:
+            frames = opened.frames
+            if not frames:
+                raise VisionError(f"cardvision infer returned no frames for {path.name}")
+            release_ids.append(opened.release_id)
+            captures.append(
+                CaptureCount(
+                    path=path,
+                    kind=kind,
+                    frames_read=len(frames),
+                    unnamed_boxes=sum(frame.unnamed for frame in frames),
+                    back_boxes=sum(frame.backs for frame in frames),
+                    inventory=inventory_from_frames(frames),
+                )
             )
-        )
     if len(set(release_ids)) != 1:
         raise VisionError("captures disagree on release id")
     return CountReport(release_id=release_ids[0], captures=tuple(captures))

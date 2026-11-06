@@ -1,5 +1,7 @@
 import json
+from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
@@ -30,15 +32,16 @@ def _sight() -> NamedSight:
 
 
 def _patch_reader(monkeypatch: pytest.MonkeyPatch, frames_for: dict[Path, tuple[Frame, ...]] | None = None) -> None:
-    def fake_read(path: Path, kind: object, release_dir: Path) -> tuple[str, tuple[Frame, ...]]:
+    @contextmanager
+    def fake_open(path: Path, kind: object, release_dir: Path):
         del kind, release_dir
         if frames_for is not None:
             frames = frames_for[path]
         else:
             frames = (Frame(path.name, (_sight(),), 0, 0),)
-        return "rel-1", frames
+        yield SimpleNamespace(release_id="rel-1", frames=frames)
 
-    monkeypatch.setattr("riftcount.count.read_capture", fake_read)
+    monkeypatch.setattr("riftcount.count.open_capture", fake_open)
 
 
 def test_no_verb_prints_help_and_exits_2() -> None:
@@ -129,13 +132,14 @@ def test_default_weights_dir_is_used_when_flag_is_omitted(
     release = _weights(tmp_path)
     seen: list[Path] = []
 
-    def fake_read(path: Path, kind: object, release_dir: Path) -> tuple[str, tuple[Frame, ...]]:
+    @contextmanager
+    def fake_open(path: Path, kind: object, release_dir: Path):
         del path, kind
         seen.append(release_dir)
-        return "rel-1", (Frame("one.jpg", (_sight(),), 2, 1),)
+        yield SimpleNamespace(release_id="rel-1", frames=(Frame("one.jpg", (_sight(),), 2, 1),))
 
     monkeypatch.setattr("riftcount.weights.default_weights_dir", lambda: release)
-    monkeypatch.setattr("riftcount.count.read_capture", fake_read)
+    monkeypatch.setattr("riftcount.count.open_capture", fake_open)
     result = runner.invoke(app, ["count", str(photo)])
     assert result.exit_code == 0, result.output
     assert seen == [release]
@@ -249,11 +253,13 @@ def test_vision_error_exits_3(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     photo = _photo(tmp_path)
     release = _weights(tmp_path)
 
-    def fake_read(path: Path, kind: object, release_dir: Path) -> tuple[str, tuple[Frame, ...]]:
+    @contextmanager
+    def fake_open(path: Path, kind: object, release_dir: Path):
         del path, kind, release_dir
         raise VisionError("cardvision infer failed for a.jpg")
+        yield
 
-    monkeypatch.setattr("riftcount.count.read_capture", fake_read)
+    monkeypatch.setattr("riftcount.count.open_capture", fake_open)
     result = runner.invoke(app, ["count", "--release", str(release), str(photo)])
     assert result.exit_code == 3
     assert result.stdout == ""
