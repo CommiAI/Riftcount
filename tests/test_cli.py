@@ -69,6 +69,8 @@ def test_count_help_exits_0() -> None:
     assert "--release" in result.output
     assert "--out" in result.output
     assert "--evidence" in result.output
+    assert "JPEG" in result.output
+    assert "MP4" in result.output
     assert ".jpg" in result.output
     assert ".mp4" in result.output
     assert ".mov" in result.output
@@ -394,6 +396,68 @@ def test_evidence_flag_writes_frames_and_prints_the_absolute_folder(
     ]
     assert (one / "frame-0001.jpg").is_file()
     assert (two / "frame-0001.jpg").is_file()
+
+
+def test_video_evidence_prints_the_counted_mp4(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from PIL import Image
+
+    from riftcount._cardvision import Detection, InferredJpeg, NamedFace, OpenedCapture, ParsedFrame, PixelBox
+    from riftcount._evidence import COUNTED_MP4
+    from riftcount.inventory import CardName, PrintingId
+
+    monkeypatch.chdir(tmp_path)
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"mp4")
+    jpeg = tmp_path / "frame.jpg"
+    Image.new("RGB", (32, 24), (0, 0, 0)).save(jpeg, format="JPEG", quality=95)
+    release = _weights(tmp_path)
+    face = NamedFace(CardName("Otterpus"), PrintingId("OGN-010"))
+    opened = OpenedCapture(
+        "abc",
+        (
+            InferredJpeg(
+                1,
+                jpeg,
+                ParsedFrame("frame-0001.jpg", (Detection(face, PixelBox(4, 4, 8, 8)),)),
+            ),
+        ),
+    )
+
+    @contextmanager
+    def fake_open(path: Path, kind: object, release_dir: Path):
+        del path, kind, release_dir
+        yield opened
+
+    def fake_run(argv: list[str], **kwargs: object) -> object:
+        del kwargs
+
+        class Proc:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        output = Path(argv[-1])
+        assert argv[0] == "ffmpeg"
+        assert output.name == COUNTED_MP4
+        output.write_bytes(b"counted")
+        return Proc()
+
+    monkeypatch.setattr("riftcount.count.open_capture", fake_open)
+    monkeypatch.setattr("riftcount._evidence.subprocess.run", fake_run)
+    result = runner.invoke(
+        app,
+        ["count", "--release", str(release), "clip.mp4", "--evidence", "out"],
+    )
+    assert result.exit_code == 0, result.output
+    counted = (tmp_path / "out" / "001-clip.mp4" / COUNTED_MP4).resolve()
+    assert result.stderr.splitlines() == [
+        "clip.mp4 video 1 copies, 0 unnamed, 0 backs",
+        f"evidence clip.mp4 {counted}",
+    ]
+    assert counted.read_bytes() == b"counted"
+    assert not (counted.parent / "frame-0001.jpg").exists()
 
 
 def test_evidence_failure_prints_no_folder_line(

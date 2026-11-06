@@ -4,11 +4,11 @@ from pathlib import Path
 
 import typer
 
-from riftcount._evidence import capture_folder
+from riftcount._evidence import COUNTED_MP4, capture_folder
 from riftcount._media import media_help
 from riftcount.count import count_paths
 from riftcount.errors import CountError, UsageError
-from riftcount.inventory import dumps_report
+from riftcount.inventory import CaptureKind, dumps_report
 from riftcount.weights import default_weights_dir, require_weights_dir, update_weights
 
 app = typer.Typer(
@@ -62,7 +62,8 @@ def count(
         None,
         "--evidence",
         help=(
-            "Also write labeled JPEGs of the counted frames here. "
+            "Write the counted frames into this directory. "
+            "You get one labeled JPEG for a photo and one MP4 for a video. "
             "The next successful count replaces this directory."
         ),
     ),
@@ -86,7 +87,8 @@ def count(
             )
             if evidence is not None:
                 folder = capture_folder(evidence, order, capture.path)
-                print(f"evidence {capture.path.name} {folder.resolve()}", file=sys.stderr)
+                shown = folder / COUNTED_MP4 if capture.kind is CaptureKind.VIDEO else folder
+                print(f"evidence {capture.path.name} {shown.resolve()}", file=sys.stderr)
     except CountError as err:
         print(str(err), file=sys.stderr)
         raise typer.Exit(code=err.exit_code) from err

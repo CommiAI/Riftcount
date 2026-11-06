@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import shutil
+import subprocess
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from enum import Enum
@@ -10,6 +11,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from riftcount._cardvision import (
+    FRAME_INTERVAL_S,
     BackFace,
     InferredJpeg,
     NamedFace,
@@ -17,10 +19,11 @@ from riftcount._cardvision import (
     UnnamedFace,
 )
 from riftcount.errors import UsageError, VisionError
-from riftcount.inventory import CaptureCount, CardName, Frame, Inventory, InventoryLine
+from riftcount.inventory import CaptureCount, CaptureKind, CardName, Frame, Inventory, InventoryLine
 
 JPEG_QUALITY = 95
 JPEG_SUBSAMPLING = 0
+COUNTED_MP4 = "counted.mp4"
 
 _BAR = (16, 18, 22)
 _INK = (245, 245, 245)
@@ -179,6 +182,8 @@ def write_evidence(
             quality=JPEG_QUALITY,
             subsampling=JPEG_SUBSAMPLING,
         )
+    if capture.kind is CaptureKind.VIDEO:
+        _encode_counted_video(folder, capture.path.name, len(jpegs))
 
 
 @contextmanager
@@ -195,6 +200,47 @@ def evidence_run(dest: Path | None, inputs: Sequence[Path]) -> Iterator[Path | N
         raise
     else:
         _install(dest, partial)
+
+
+def _counted_video_argv(folder: Path) -> list[str]:
+    rate = 1 / FRAME_INTERVAL_S
+    return [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-framerate",
+        f"{rate:g}",
+        "-start_number",
+        "1",
+        "-i",
+        str(folder / "frame-%04d.jpg"),
+        # yuv420p rejects an odd footer height.
+        "-vf",
+        "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        str(folder / COUNTED_MP4),
+    ]
+
+
+def _encode_counted_video(folder: Path, source_name: str, frame_count: int) -> None:
+    proc = subprocess.run(
+        _counted_video_argv(folder),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    video = folder / COUNTED_MP4
+    if proc.returncode != 0 or not video.is_file():
+        raise VisionError(f"ffmpeg failed on {source_name}")
+    for index in range(1, frame_count + 1):
+        (folder / f"frame-{index:04d}.jpg").unlink()
 
 
 def _line(inventory: Inventory, name: CardName) -> InventoryLine:
