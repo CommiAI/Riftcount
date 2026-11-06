@@ -36,7 +36,7 @@ evidence/sample/001-sample-riftbound.mp4/counted.mp4
 evidence/runes/001-photo1-runes.jpg/frame-0001.jpg
 ```
 
-`001` is that capture's place in the JSON, starting at 1. `counted.mp4` is the camera video at its own frame rate. Each scored frame's boxes stay until the next scored frame, every 0.5 seconds. Pause on a frame and the `copy`, `repeat`, `unnamed`, and `back` labels are still there. The inventory bar under the picture stays. A photo stays one JPEG, `frame-0001.jpg`. Leave `--evidence` off and `count` writes no pictures.
+`001` is that capture's place in the JSON, starting at 1. `counted.mp4` is the camera video at its own frame rate. Each camera frame has the boxes found on that frame. The count still reads one frame every 0.5 seconds, and the inventory bar under the picture names those scored frames. A photo stays one JPEG, `frame-0001.jpg`. Leave `--evidence` off and `count` writes no pictures.
 
 A later successful count with the same directory replaces it. A failed count leaves `DIR` unchanged.
 

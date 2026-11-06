@@ -42,6 +42,7 @@ def count_paths(
                         jpegs=opened.jpegs,
                         frames=frames,
                         capture=capture,
+                        release_dir=release,
                     )
                 release_ids.append(opened.release_id)
                 captures.append(capture)

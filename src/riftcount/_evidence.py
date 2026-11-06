@@ -13,12 +13,13 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from riftcount._cardvision import (
-    FRAME_INTERVAL_S,
     BackFace,
+    Detection,
     InferredJpeg,
     NamedFace,
     PixelBox,
     UnnamedFace,
+    infer_images,
 )
 from riftcount.errors import UsageError, VisionError
 from riftcount.inventory import CaptureCount, CaptureKind, CardName, Frame, Inventory, InventoryLine
@@ -90,11 +91,14 @@ def footer_lines(
     height: int,
     capture: CaptureCount,
     cited: Mapping[CardName, Sequence[int]],
+    *,
+    frame_total: int | None = None,
 ) -> tuple[str, ...]:
+    total = capture.frames_read if frame_total is None else frame_total
     lines = [
         (
             f"{order:03d}-{capture.path.name} · {capture.kind.value} · "
-            f"release {release_id} · frame {frame_index}/{capture.frames_read} · "
+            f"release {release_id} · frame {frame_index}/{total} · "
             f"{width}×{height} decoded pixels, EXIF ignored"
         ),
         "copies are the busiest frame, not a sum",
@@ -150,23 +154,6 @@ def capture_folder(dest: Path, order: int, source: Path) -> Path:
     return dest / f"{order:03d}-{source.name}"
 
 
-def held_sample_index(time_s: float | Fraction, sample_count: int) -> int:
-    if isinstance(sample_count, bool) or not isinstance(sample_count, int) or sample_count < 1:
-        raise ValueError("sample_count must be an integer >= 1")
-    if isinstance(time_s, bool) or not isinstance(time_s, (int, float, Fraction)):
-        raise ValueError("time_s must be a finite number >= 0")
-    try:
-        time = Fraction(time_s)
-    except (OverflowError, ValueError) as err:
-        raise ValueError("time_s must be a finite number >= 0") from err
-    if time < 0:
-        raise ValueError("time_s must be a finite number >= 0")
-    interval = Fraction(FRAME_INTERVAL_S)
-    if time >= sample_count * interval:
-        return sample_count - 1
-    return math.floor(time / interval)
-
-
 def write_evidence(
     stage: Path,
     *,
@@ -175,6 +162,8 @@ def write_evidence(
     jpegs: Sequence[InferredJpeg],
     frames: Sequence[Frame],
     capture: CaptureCount,
+    release_dir: Path | None = None,
+    overlays: Sequence[InferredJpeg] | None = None,
 ) -> None:
     if tuple(jpeg.index for jpeg in jpegs) != tuple(range(1, len(jpegs) + 1)):
         raise VisionError(f"{capture.path.name} frames are not numbered from 1")
@@ -184,7 +173,16 @@ def write_evidence(
     folder = capture_folder(stage, order, capture.path)
     folder.mkdir()
     if capture.kind is CaptureKind.VIDEO:
-        _write_counted_video(folder, order, release_id, jpegs, capture, cited)
+        _write_counted_video(
+            folder,
+            order,
+            release_id,
+            jpegs,
+            capture,
+            cited,
+            release_dir=release_dir,
+            overlays=overlays,
+        )
         return
     for jpeg in jpegs:
         image = _open_rgb(jpeg.path)
@@ -221,15 +219,31 @@ def _paint_sample(
     release_id: str,
     capture: CaptureCount,
     cited: Mapping[CardName, Sequence[int]],
+    *,
+    frame_index: int | None = None,
+    frame_total: int | None = None,
 ) -> Image.Image:
+    shown = jpeg.index if frame_index is None else frame_index
     for detection in jpeg.parsed.detections:
         box = detection.box
         if box is None:
-            raise VisionError(f"{capture.path.name} frame {jpeg.index} has a detection with no box")
-        caption = _caption(detection.face, jpeg.index, cited)
-        label = box_label(caption, detection.face, capture.inventory)
+            raise VisionError(f"{capture.path.name} frame {shown} has a detection with no box")
+        caption = _caption(detection.face, jpeg.parsed.detections, capture.inventory)
+        if isinstance(detection.face, NamedFace) and _find_line(capture.inventory, detection.face.name) is None:
+            label = f"{detection.face.name.text} · {detection.face.printing.text} · not in the count"
+        else:
+            label = box_label(caption, detection.face, capture.inventory)
         draw_box(image, box, caption, label)
-    lines = footer_lines(order, release_id, jpeg.index, image.width, image.height, capture, cited)
+    lines = footer_lines(
+        order,
+        release_id,
+        shown,
+        image.width,
+        image.height,
+        capture,
+        cited,
+        frame_total=frame_total,
+    )
     return paint_footer(image, lines)
 
 
@@ -240,21 +254,41 @@ def _write_counted_video(
     jpegs: Sequence[InferredJpeg],
     capture: CaptureCount,
     cited: Mapping[CardName, Sequence[int]],
+    *,
+    release_dir: Path | None,
+    overlays: Sequence[InferredJpeg] | None,
 ) -> None:
     rate = _source_frame_rate(capture.path)
     reference = _open_rgb(jpegs[0].path)
     painted: list[Path] = []
     with tempfile.TemporaryDirectory(prefix="riftcount-") as tmp:
-        for index, source in enumerate(_extract_source_frames(capture.path, Path(tmp))):
+        sources = _extract_source_frames(capture.path, Path(tmp))
+        for index, source in enumerate(sources, start=1):
             image = _open_rgb(source)
             if image.size != reference.size:
                 raise VisionError(
-                    f"{capture.path.name} frame {index + 1} is {image.width}×{image.height}, "
+                    f"{capture.path.name} frame {index} is {image.width}×{image.height}, "
                     f"not {reference.width}×{reference.height}"
                 )
-            sample = jpegs[held_sample_index(Fraction(index, 1) / rate, len(jpegs))]
-            canvas = _paint_sample(image, sample, order, release_id, capture, cited)
-            path = folder / f"frame-{index + 1:08d}.jpg"
+        if overlays is None:
+            if release_dir is None:
+                raise VisionError(f"{capture.path.name} has no per-frame boxes")
+            overlays = infer_images(release_dir, sources, source=capture.path)
+        if len(overlays) != len(sources):
+            raise VisionError(f"{capture.path.name} overlay count does not match the camera frames")
+        for index, (source, overlay) in enumerate(zip(sources, overlays), start=1):
+            image = _open_rgb(source)
+            canvas = _paint_sample(
+                image,
+                overlay,
+                order,
+                release_id,
+                capture,
+                cited,
+                frame_index=index,
+                frame_total=len(sources),
+            )
+            path = folder / f"frame-{index:08d}.jpg"
             canvas.save(
                 path,
                 format="JPEG",
@@ -369,11 +403,18 @@ def _encode_counted_video(
         path.unlink()
 
 
-def _line(inventory: Inventory, name: CardName) -> InventoryLine:
+def _find_line(inventory: Inventory, name: CardName) -> InventoryLine | None:
     for line in inventory.lines:
         if line.name == name:
             return line
-    raise ValueError(f"no inventory line for {name.text}")
+    return None
+
+
+def _line(inventory: Inventory, name: CardName) -> InventoryLine:
+    line = _find_line(inventory, name)
+    if line is None:
+        raise ValueError(f"no inventory line for {name.text}")
+    return line
 
 
 def _cited(frames: Sequence[Frame], inventory: Inventory) -> dict[CardName, tuple[int, ...]]:
@@ -392,8 +433,8 @@ def _cited(frames: Sequence[Frame], inventory: Inventory) -> dict[CardName, tupl
 
 def _caption(
     face: NamedFace | UnnamedFace | BackFace,
-    frame_index: int,
-    cited: Mapping[CardName, Sequence[int]],
+    detections: Sequence[Detection],
+    inventory: Inventory,
 ) -> Caption:
     if isinstance(face, BackFace):
         return Caption.BACK
@@ -401,12 +442,14 @@ def _caption(
         return Caption.UNNAMED
     if not isinstance(face, NamedFace):
         raise TypeError(f"unknown face {type(face).__name__}")
-    indexes = cited.get(face.name)
-    if indexes is None:
-        raise ValueError(f"no copy source for {face.name.text}")
-    if frame_index in indexes:
-        return Caption.COPY
-    return Caption.REPEAT
+    count = sum(
+        isinstance(detection.face, NamedFace) and detection.face.name == face.name
+        for detection in detections
+    )
+    line = _find_line(inventory, face.name)
+    if line is None or count != line.copies:
+        return Caption.REPEAT
+    return Caption.COPY
 
 
 def _stroke_width(image_width: int) -> int:

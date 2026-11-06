@@ -32,7 +32,6 @@ from riftcount._evidence import (
     draw_box,
     evidence_run,
     footer_lines,
-    held_sample_index,
     paint_footer,
     write_evidence,
 )
@@ -100,22 +99,6 @@ def test_box_label_uses_the_caption_words() -> None:
     assert box_label(Caption.UNNAMED, guessed_only, inventory) == "unnamed · adds 1 · ? Riptide Rex"
     assert box_label(Caption.UNNAMED, similarity_only, inventory) == UNNAMED_PLAIN
     assert box_label(Caption.BACK, BackFace(), inventory) == BACK_LABEL
-
-
-def test_held_sample_index_covers_each_half_second_and_keeps_the_last() -> None:
-    assert held_sample_index(0, 3) == 0
-    assert held_sample_index(0.49, 3) == 0
-    assert held_sample_index(0.5, 3) == 1
-    assert held_sample_index(1.0, 2) == 1
-    assert held_sample_index(3.0, 2) == 1
-    with pytest.raises(ValueError):
-        held_sample_index(-0.01, 2)
-    with pytest.raises(ValueError):
-        held_sample_index(float("nan"), 2)
-    with pytest.raises(ValueError):
-        held_sample_index(float("inf"), 2)
-    with pytest.raises(ValueError):
-        held_sample_index(0, 0)
 
 
 def test_footer_lines_name_one_frame_a_tie_and_the_sums() -> None:
@@ -322,6 +305,8 @@ def _patch(
         else:
             assert stdout is not None
             text = stdout
+            if len(argv) > 1 and argv[1] == "infer":
+                text = _lines_for_images(text, argv)
         return Proc(text)
 
     monkeypatch.setattr("riftcount._cardvision.shutil.which", fake_which)
@@ -330,6 +315,18 @@ def _patch(
 
 def _line(document: dict[str, object]) -> str:
     return json.dumps(document) + "\n"
+
+
+def _lines_for_images(text: str, argv: list[str]) -> str:
+    images = [arg for arg in argv if Path(arg).suffix.lower() in {".jpg", ".jpeg"}]
+    lines = [line for line in text.splitlines() if line.strip().startswith("{")]
+    if not images or not lines or len(images) == len(lines):
+        return text
+    if len(lines) > len(images):
+        lines = lines[: len(images)]
+    else:
+        lines.extend([lines[-1]] * (len(images) - len(lines)))
+    return "\n".join(lines) + "\n"
 
 
 def _decoded(path: Path) -> Image.Image:
@@ -980,11 +977,23 @@ def test_counted_video_is_an_mp4_a_player_can_open(tmp_path: Path) -> None:
     name = CardName("Otterpus")
     printing = PrintingId("OGN-010")
     face = NamedFace(name, printing)
-    box_a = PixelBox(8, 32, 18, 16)
-    box_b = PixelBox(48, 32, 18, 16)
+    boxes = (
+        PixelBox(4, 32, 12, 12),
+        PixelBox(22, 32, 12, 12),
+        PixelBox(40, 32, 12, 12),
+        PixelBox(58, 32, 12, 12),
+    )
     jpegs = (
-        InferredJpeg(1, scored[0], ParsedFrame("frame-0001.jpg", (Detection(face, box_a),))),
-        InferredJpeg(2, scored[1], ParsedFrame("frame-0002.jpg", (Detection(face, box_b),))),
+        InferredJpeg(1, scored[0], ParsedFrame("frame-0001.jpg", (Detection(face, boxes[0]),))),
+        InferredJpeg(2, scored[1], ParsedFrame("frame-0002.jpg", (Detection(face, boxes[1]),))),
+    )
+    overlays = tuple(
+        InferredJpeg(
+            index,
+            scored[0],
+            ParsedFrame(f"camera-{index}.jpg", (Detection(face, box),)),
+        )
+        for index, box in enumerate(boxes, start=1)
     )
     frames = tuple(Frame(jpeg.parsed.label, (NamedSight(name, printing),), 0, 0) for jpeg in jpegs)
     capture = CaptureCount(video, CaptureKind.VIDEO, len(frames), 0, 0, inventory_from_frames(frames))
@@ -998,6 +1007,7 @@ def test_counted_video_is_an_mp4_a_player_can_open(tmp_path: Path) -> None:
             jpegs=jpegs,
             frames=frames,
             capture=capture,
+            overlays=overlays,
         )
     published = dest / "001-clip.mp4" / COUNTED_MP4
     folder = published.parent
@@ -1016,14 +1026,11 @@ def test_counted_video_is_an_mp4_a_player_can_open(tmp_path: Path) -> None:
     assert _far(_rgb(decoded[0], 2, 2), _rgb(decoded[1], 2, 2))
     assert _closer(_rgb(decoded[0], 2, 2), colors[0], (128, 128, 128))
     assert _closer(_rgb(decoded[1], 2, 2), colors[1], (128, 128, 128))
-    assert _shows_box(decoded[0], box_a)
-    assert _shows_box(decoded[1], box_a)
-    assert not _shows_box(decoded[0], box_b)
-    assert not _shows_box(decoded[1], box_b)
-    assert _shows_box(decoded[2], box_b)
-    assert not _shows_box(decoded[2], box_a)
-    assert _far(_rgb(decoded[2], 2, 2), _rgb(decoded[0], 2, 2))
-    assert _far(_rgb(decoded[2], 2, 2), _rgb(decoded[1], 2, 2))
+    for index, box in enumerate(boxes):
+        assert _shows_box(decoded[index], box)
+        for other in boxes:
+            if other is not box:
+                assert not _shows_box(decoded[index], other)
 
 
 def test_source_frame_size_must_match_the_inferred_jpeg(tmp_path: Path) -> None:

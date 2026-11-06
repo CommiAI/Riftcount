@@ -441,6 +441,27 @@ def test_video_evidence_prints_the_counted_mp4(
         if argv[0] == "ffprobe":
             Proc.stdout = "30/1\n"
             return Proc()
+        if len(argv) > 1 and argv[1] == "infer":
+            images = [arg for arg in argv if arg.lower().endswith((".jpg", ".jpeg"))]
+            lines = [
+                json.dumps(
+                    {
+                        "frame": Path(image).name,
+                        "boxes": [
+                            {
+                                "class": "face",
+                                "outcome": "named",
+                                "name": "Otterpus",
+                                "cardId": "OGN-010",
+                                "box": [4, 4, 8, 8],
+                            }
+                        ],
+                    }
+                )
+                for image in images
+            ]
+            Proc.stdout = "\n".join(lines) + "\n"
+            return Proc()
         assert argv[0] == "ffmpeg"
         output = Path(argv[-1])
         if output.name == COUNTED_MP4:

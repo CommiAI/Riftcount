@@ -279,6 +279,18 @@ def _opened(
     return OpenedCapture(release_id=ident, jpegs=jpegs)
 
 
+def infer_images(
+    release_dir: Path,
+    images: Sequence[Path],
+    *,
+    source: Path,
+) -> tuple[InferredJpeg, ...]:
+    document = release_json(release_dir)
+    ident = release_id(document)
+    binary = _require_binary("cardvision")
+    return _opened(ident, binary, document, images, source=source).jpegs
+
+
 def _infer(
     binary: str,
     document: Path,
