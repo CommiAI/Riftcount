@@ -38,7 +38,6 @@ def count_paths(
                     write_evidence(
                         stage,
                         order=order,
-                        release_id=opened.release_id,
                         jpegs=opened.jpegs,
                         frames=frames,
                         capture=capture,
