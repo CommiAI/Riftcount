@@ -101,27 +101,10 @@ def test_box_label_uses_the_caption_words() -> None:
     assert box_label(Caption.BACK, BackFace(), inventory) == BACK_LABEL
 
 
-def test_footer_lines_name_one_frame_a_tie_and_the_sums() -> None:
+def test_footer_lines_lists_each_counted_card() -> None:
     inventory = _inventory(("Cloud Drake", "VEN-048", 2), ("Otterpus", "OGN-001", 1))
-    capture = _capture("clip.mp4", CaptureKind.VIDEO, 5, 4, 0, inventory)
-    cited = {
-        CardName("Cloud Drake"): (2, 5),
-        CardName("Otterpus"): (2,),
-    }
-    assert footer_lines(1, "rel-1", 3, 80, 60, capture, cited) == (
-        "001-clip.mp4 · video · release rel-1 · frame 3/5 · 80×60 decoded pixels, EXIF ignored",
-        "copies are the busiest frame, not a sum",
-        "  Cloud Drake ×2 (frames 2, 5)",
-        "  Otterpus ×1 (frame 2)",
-        "unnamed sum 4 (each unnamed box adds 1) · back sum 0 (each back box adds 1)",
-    )
-    empty = _capture("rune.jpg", CaptureKind.STILL, 1, 2, 1, Inventory(()))
-    assert footer_lines(1, "rel-1", 1, 40, 20, empty, {}) == (
-        "001-rune.jpg · still · release rel-1 · frame 1/1 · 40×20 decoded pixels, EXIF ignored",
-        "copies are the busiest frame, not a sum",
-        "  (none)",
-        "unnamed sum 2 (each unnamed box adds 1) · back sum 1 (each back box adds 1)",
-    )
+    assert footer_lines(inventory) == ("Cloud Drake \u00d72", "Otterpus \u00d71")
+    assert footer_lines(Inventory(())) == ("no cards",)
 
 
 def _weights(directory: Path) -> Path:
@@ -496,14 +479,8 @@ def test_evidence_jpeg_shows_each_caption_and_is_taller_than_the_source(
     assert saved_path.is_file()
     assert not _partial(dest).exists()
     assert not _previous(dest).exists()
-    lines = (
-        f"001-rune.jpg · still · release rel-1 · frame 1/1 · {width}×{height} decoded pixels, EXIF ignored",
-        "copies are the busiest frame, not a sum",
-        "  Fury Rune ×2 (frame 1)",
-        "unnamed sum 2 (each unnamed box adds 1) · back sum 1 (each back box adds 1)",
-    )
-    cited = {capture.inventory.lines[0].name: (1,)}
-    assert footer_lines(1, report.release_id, 1, width, height, capture, cited) == lines
+    lines = footer_lines(capture.inventory)
+    assert lines == ("Fury Rune \u00d72",)
     marks = [
         (same, Caption.COPY, COPY_SAME),
         (other, Caption.COPY, COPY_OTHER),
@@ -629,9 +606,8 @@ def test_tie_frames_are_both_copy_and_match_the_extracted_jpegs(
     for index, image in enumerate(decoded):
         assert _shows_box(image, one)
         assert _shows_box(image, two) == (index in {1, 4})
-    cited = {CardName("Cloud Drake"): (2, 5)}
     capture = report.captures[0]
-    assert footer_lines(1, "rel-1", 2, 96, 80, capture, cited)[2] == "  Cloud Drake ×2 (frames 2, 5)"
+    assert footer_lines(capture.inventory) == ("Cloud Drake \u00d72",)
 
 
 def test_shorter_rerun_leaves_only_the_new_frames(
@@ -821,16 +797,8 @@ def test_exif_orientation_keeps_the_stored_width_and_height(
         assert saved.width == 40
         assert saved.height > 20
         assert saved.getpixel((0, 0)) == (0, 0, 0)
-    lines = footer_lines(
-        1,
-        "rel-1",
-        1,
-        40,
-        20,
-        _capture("rune.jpg", CaptureKind.STILL, 1, 0, 0, _inventory(("Otterpus", "OGN-010", 1))),
-        {CardName("Otterpus"): (1,)},
-    )
-    assert "40×20 decoded pixels, EXIF ignored" in lines[0]
+    lines = footer_lines(_inventory(("Otterpus", "OGN-010", 1)))
+    assert lines == ("Otterpus \u00d71",)
     assert saved_path.read_bytes() == _paint(photo, [(PixelBox(16, 8, 12, 8), Caption.COPY, "Otterpus · OGN-010 · copy")], lines)
 
 
@@ -1003,7 +971,6 @@ def test_counted_video_is_an_mp4_a_player_can_open(tmp_path: Path) -> None:
         write_evidence(
             stage,
             order=1,
-            release_id="rel-1",
             jpegs=jpegs,
             frames=frames,
             capture=capture,
@@ -1059,7 +1026,6 @@ def test_source_frame_size_must_match_the_inferred_jpeg(tmp_path: Path) -> None:
             write_evidence(
                 stage,
                 order=1,
-                release_id="rel-1",
                 jpegs=jpegs,
                 frames=frames,
                 capture=capture,

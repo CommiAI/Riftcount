@@ -4,7 +4,7 @@ import math
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from enum import Enum
 from fractions import Fraction
@@ -83,43 +83,10 @@ def box_label(caption: Caption, face: NamedFace | UnnamedFace | BackFace, invent
     return text
 
 
-def footer_lines(
-    order: int,
-    release_id: str,
-    frame_index: int,
-    width: int,
-    height: int,
-    capture: CaptureCount,
-    cited: Mapping[CardName, Sequence[int]],
-    *,
-    frame_total: int | None = None,
-) -> tuple[str, ...]:
-    total = capture.frames_read if frame_total is None else frame_total
-    lines = [
-        (
-            f"{order:03d}-{capture.path.name} · {capture.kind.value} · "
-            f"release {release_id} · frame {frame_index}/{total} · "
-            f"{width}×{height} decoded pixels, EXIF ignored"
-        ),
-        "copies are the busiest frame, not a sum",
-    ]
-    if not capture.inventory.lines:
-        lines.append("  (none)")
-    else:
-        for line in capture.inventory.lines:
-            indexes = tuple(cited[line.name])
-            if not indexes:
-                raise ValueError(f"no cited frame for {line.name.text}")
-            if len(indexes) == 1:
-                where = f"frame {indexes[0]}"
-            else:
-                where = "frames " + ", ".join(str(index) for index in indexes)
-            lines.append(f"  {line.name.text} ×{line.copies} ({where})")
-    lines.append(
-        f"unnamed sum {capture.unnamed_boxes} (each unnamed box adds 1) · "
-        f"back sum {capture.back_boxes} (each back box adds 1)"
-    )
-    return tuple(lines)
+def footer_lines(inventory: Inventory) -> tuple[str, ...]:
+    if not inventory.lines:
+        return ("no cards",)
+    return tuple(f"{line.name.text} \u00d7{line.copies}" for line in inventory.lines)
 
 
 def draw_box(image: Image.Image, box: PixelBox, caption: Caption, label: str) -> None:
@@ -158,7 +125,6 @@ def write_evidence(
     stage: Path,
     *,
     order: int,
-    release_id: str,
     jpegs: Sequence[InferredJpeg],
     frames: Sequence[Frame],
     capture: CaptureCount,
@@ -169,24 +135,20 @@ def write_evidence(
         raise VisionError(f"{capture.path.name} frames are not numbered from 1")
     if len(frames) != len(jpegs):
         raise VisionError(f"{capture.path.name} frame count does not match the infer JPEGs")
-    cited = _cited(frames, capture.inventory)
     folder = capture_folder(stage, order, capture.path)
     folder.mkdir()
     if capture.kind is CaptureKind.VIDEO:
         _write_counted_video(
             folder,
-            order,
-            release_id,
             jpegs,
             capture,
-            cited,
             release_dir=release_dir,
             overlays=overlays,
         )
         return
     for jpeg in jpegs:
         image = _open_rgb(jpeg.path)
-        painted = _paint_sample(image, jpeg, order, release_id, capture, cited)
+        painted = _paint_sample(image, jpeg, capture)
         destination = folder / f"frame-{jpeg.index:04d}.jpg"
         painted.save(
             destination,
@@ -215,13 +177,9 @@ def evidence_run(dest: Path | None, inputs: Sequence[Path]) -> Iterator[Path | N
 def _paint_sample(
     image: Image.Image,
     jpeg: InferredJpeg,
-    order: int,
-    release_id: str,
     capture: CaptureCount,
-    cited: Mapping[CardName, Sequence[int]],
     *,
     frame_index: int | None = None,
-    frame_total: int | None = None,
 ) -> Image.Image:
     shown = jpeg.index if frame_index is None else frame_index
     for detection in jpeg.parsed.detections:
@@ -234,26 +192,13 @@ def _paint_sample(
         else:
             label = box_label(caption, detection.face, capture.inventory)
         draw_box(image, box, caption, label)
-    lines = footer_lines(
-        order,
-        release_id,
-        shown,
-        image.width,
-        image.height,
-        capture,
-        cited,
-        frame_total=frame_total,
-    )
-    return paint_footer(image, lines)
+    return paint_footer(image, footer_lines(capture.inventory))
 
 
 def _write_counted_video(
     folder: Path,
-    order: int,
-    release_id: str,
     jpegs: Sequence[InferredJpeg],
     capture: CaptureCount,
-    cited: Mapping[CardName, Sequence[int]],
     *,
     release_dir: Path | None,
     overlays: Sequence[InferredJpeg] | None,
@@ -281,12 +226,8 @@ def _write_counted_video(
             canvas = _paint_sample(
                 image,
                 overlay,
-                order,
-                release_id,
                 capture,
-                cited,
                 frame_index=index,
-                frame_total=len(sources),
             )
             path = folder / f"frame-{index:08d}.jpg"
             canvas.save(
@@ -415,20 +356,6 @@ def _line(inventory: Inventory, name: CardName) -> InventoryLine:
     if line is None:
         raise ValueError(f"no inventory line for {name.text}")
     return line
-
-
-def _cited(frames: Sequence[Frame], inventory: Inventory) -> dict[CardName, tuple[int, ...]]:
-    cited: dict[CardName, tuple[int, ...]] = {}
-    for line in inventory.lines:
-        indexes = tuple(
-            index
-            for index, frame in enumerate(frames, start=1)
-            if sum(sight.name == line.name for sight in frame.named) == line.copies
-        )
-        if not indexes:
-            raise ValueError(f"no frame has {line.copies} copies of {line.name.text}")
-        cited[line.name] = indexes
-    return cited
 
 
 def _caption(
